@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Wizard from '../components/Wizard';
+---
+
+<Layout title="macOS Setup">
+	<main>
+		<Wizard client:load />
+	</main>
+</Layout>
+
+<style>
+	main {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+	}
+</style>
