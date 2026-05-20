@@ -35,9 +35,19 @@ jobs:
           npm run build:frontend
           npm run build:electron
 
+      - name: Generate Version Tag
+        id: tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="v${VERSION}-$(date +'%Y%m%d.%H%M')"
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "version_raw=${VERSION}-$(date +'%Y%m%d.%H%M')" >> $GITHUB_OUTPUT
+          echo "Version tag: ${TAG_NAME}"
+
       - name: Build and Publish
         uses: samuelmeuli/action-electron-builder@v1
         with:
-          github_token: ${{ secrets.github_token }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           release: true
-          args: "--linux --x64 --arm64"
+          # Usamos el tag generado para la release y forzamos publicación inmediata
+          args: "--linux --x64 --arm64 -c.publish.provider=github -c.publish.releaseType=release -c.extraMetadata.version=${{ steps.tag.outputs.version_raw }}"

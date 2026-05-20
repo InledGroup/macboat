@@ -1,7 +1,7 @@
 {
   "name": "macboat",
   "productName": "MacBoat",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MacBoat - macOS inside a Docker container with ease.",
   "author": "Inled Group <hi@inled.es>",
   "main": "dist/backend/electron/main.js",
@@ -38,7 +38,6 @@
       "category": "Utility"
     }
   },
-
   "repository": {
     "type": "git",
     "url": "git+https://github.com/InledGroup/macboat.git"
