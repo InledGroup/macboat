@@ -5,6 +5,7 @@ export default defineConfig({
   srcDir: './src/frontend',
   outDir: './dist/frontend',
   publicDir: './src/frontend/public',
+  base: '',
   integrations: [preact()],
   server: {
     port: 3000

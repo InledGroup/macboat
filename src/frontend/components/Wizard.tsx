@@ -232,7 +232,7 @@ export default function Wizard() {
 
       {$step === 1 && (
         <section class="tile product-tile-light main-step">
-          <img src="/macboat.png" alt="MacBoat Logo" class="app-logo" />
+          <img src="macboat.png" alt="MacBoat Logo" class="app-logo" />
           
           {$isDetected ? (
             <div class="play-screen" style={{ textAlign: 'center' }}>

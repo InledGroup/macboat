@@ -9,6 +9,14 @@ npm install
 # Construir frontend y backend
 echo "🔨 Construyendo aplicación..."
 npm run build:frontend
+
+# Corregir rutas absolutas en el HTML para compatibilidad con Electron
+echo "🛠️ Corrigiendo rutas en dist/frontend/index.html..."
+sed -i 's/href=\"\//href=\"/g' dist/frontend/index.html
+sed -i 's/src=\"\//src=\"/g' dist/frontend/index.html
+sed -i 's/component-url=\"\//component-url=\"/g' dist/frontend/index.html
+sed -i 's/renderer-url=\"\//renderer-url=\"/g' dist/frontend/index.html
+
 npm run build:electron
 
 # Empaquetar para Linux (AppImage, deb, rpm)

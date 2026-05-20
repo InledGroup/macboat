@@ -42,12 +42,12 @@ async function createWindow() {
     width: 1200,
     height: 800,
     title: 'MacBoat',
-    icon: path.join(__dirname, '../../../assets/macboat.png'),
+    icon: path.join(app.getAppPath(), 'dist/frontend/macboat.png'),
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(app.getAppPath(), 'dist/backend/electron/preload.cjs'),
     },
     backgroundColor: '#ffffff',
   });
@@ -58,7 +58,8 @@ async function createWindow() {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/frontend/index.html'));
+    const indexPath = path.join(app.getAppPath(), 'dist/frontend/index.html');
+    mainWindow.loadFile(indexPath);
   }
 
   mainWindow.on('closed', () => {

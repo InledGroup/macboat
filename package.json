@@ -34,8 +34,8 @@
         "deb",
         "rpm"
       ],
-      "category": "Utility",
-      "icon": "build/icon.png"
+      "executableName": "macboat",
+      "category": "Utility"
     }
   },
 
