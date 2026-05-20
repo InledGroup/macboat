@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/preact';
-import { step, systemStatus, config, logs, isInstalling, isDetected, progress, language, currentStage, showViewer, isFullScreen, hasAcceptedLegal, isLegalRejected } from '../store';
+import { step, systemStatus, config, logs, isInstalling, isDetected, detectedVMs, progress, language, currentStage, showViewer, isFullScreen, hasAcceptedLegal, isLegalRejected } from '../store';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { translations } from '../translations';
 
@@ -10,6 +10,7 @@ export default function Wizard() {
   const $logs = useStore(logs);
   const $isInstalling = useStore(isInstalling);
   const $isDetected = useStore(isDetected);
+  const $vms = useStore(detectedVMs);
   const $progress = useStore(progress);
   const $lang = useStore(language);
   const $stage = useStore(currentStage);
@@ -41,13 +42,10 @@ export default function Wizard() {
         }
 
         // @ts-ignore
-        const exists = await window.electron.checkExistingImage();
-        isDetected.set(exists);
+        const vms = await window.electron.checkExistingImage();
+        detectedVMs.set(vms);
+        isDetected.set(vms.length > 0);
         
-        // If detected and we are on start, show Play screen
-        if (exists && $step === 1) {
-          step.set(1);
-        }
       } catch (e) {
         console.error('Wizard init error:', e);
       }
@@ -120,7 +118,7 @@ export default function Wizard() {
     }
   };
 
-  const startInstall = async () => {
+  const startInstall = async (existingConfig?: any) => {
     step.set(5); 
     isInstalling.set(true);
     showViewer.set(false);
@@ -130,10 +128,9 @@ export default function Wizard() {
     progress.set(0);
     
     try {
+      const runConfig = existingConfig || { ...$config };
       // @ts-ignore
-      await window.electron.startMacOS({
-        ...$config,
-      });
+      await window.electron.startMacOS(runConfig);
     } catch (error) {
       logs.set(logs.get() + '\n' + t.fatalError + error + '\n');
       isInstalling.set(false);
@@ -233,32 +230,41 @@ export default function Wizard() {
       {$step === 1 && (
         <section class="tile product-tile-light main-step">
           <img src="macboat.png" alt="MacBoat Logo" class="app-logo" />
+          <h1 class="display-lg">{t.welcome}</h1>
           
           {$isDetected ? (
-            <div class="play-screen" style={{ textAlign: 'center' }}>
-              <h1 class="display-lg">{t.welcome}</h1>
-              <p class="lead" style={{ marginBottom: '40px' }}>{t.alreadyInstalledDesc}</p>
-              
-              <div class="play-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <button onClick={() => { step.set(3); }} class="button-primary" style={{ width: '100px', height: '100px', borderRadius: '50%', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 15px 40px rgba(0,102,204,0.4)', transition: 'transform 0.2s' }}>
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="white">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </button>
-                    <span class="caption" style={{ fontWeight: '700', fontSize: '16px', color: 'var(--color-primary)' }}>{t.startMacos}</span>
+            <div class="vm-dashboard" style={{ width: '100%', marginTop: '30px' }}>
+              <div class="vm-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+                {$vms.map(vm => (
+                  <div class="vm-card tile" style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f5f5f7', border: '1px solid var(--color-hairline)' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '10px' }}></div>
+                    <h3 class="headline" style={{ marginBottom: '15px' }}>{vm.name}</h3>
+                    <div class="actions" style={{ justifyContent: 'center' }}>
+                      <button 
+                        onClick={() => startInstall({ ...$config, version: vm.version })} 
+                        class="button-primary" 
+                        style={{ borderRadius: '50%', width: '50px', height: '50px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </div>
+                    {!vm.hasData && <p class="caption" style={{ color: '#f56300', marginTop: '10px' }}>{t.booting}</p>}
                   </div>
+                ))}
+                <div 
+                  onClick={() => { isDetected.set(false); step.set(2); }} 
+                  class="vm-card tile" 
+                  style={{ padding: '20px', textAlign: 'center', backgroundColor: 'transparent', border: '2px dashed var(--color-hairline)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <div style={{ fontSize: '48px', color: 'var(--color-primary)' }}>+</div>
+                  <h3 class="headline" style={{ color: 'var(--color-primary)' }}>{t.newInstall}</h3>
                 </div>
-                
-                <button onClick={() => { isDetected.set(false); step.set(1); }} class="button-secondary-pill" style={{ marginTop: '30px', fontSize: '14px' }}>
-                  {t.newInstall}
-                </button>
               </div>
             </div>
           ) : (
             <>
-              <h1 class="display-lg">{t.welcome}</h1>
               <p class="lead">{t.tagline}</p>
               
               <div class="checklist">
@@ -301,6 +307,17 @@ export default function Wizard() {
               </div>
             </>
           )}
+        </section>
+      )}
+
+      {$step === 2 && (
+        <section class="tile product-tile-light main-step">
+          <h1 class="display-lg">{t.newInstall}</h1>
+          <p class="lead">{t.tagline}</p>
+          <div class="actions">
+            <button onClick={() => step.set(1)} class="button-secondary-pill">{t.back}</button>
+            <button onClick={() => step.set(3)} class="button-primary">{t.continue}</button>
+          </div>
         </section>
       )}
 
@@ -372,32 +389,6 @@ export default function Wizard() {
                 onChange={(e) => config.set({ ...$config, diskSize: (e.target as HTMLInputElement).value + 'G' })}
                 class="resource-slider"
               />
-            </div>
-
-            <div class="resource-item" style={{ gridColumn: '1 / -1', marginTop: '20px', borderTop: '1px solid var(--color-hairline)', paddingTop: '20px' }}>
-              <div class="resource-label">
-                <span>{t.selectDisk}</span>
-              </div>
-              <p class="caption" style={{ marginBottom: '10px' }}>{t.selectDiskDesc}</p>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <input 
-                  type="text" 
-                  placeholder="/dev/sdX o /path/to/image.img"
-                  value={$config.installDisk || ''}
-                  onChange={(e) => config.set({ ...$config, installDisk: (e.target as HTMLInputElement).value })}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--color-hairline)' }}
-                />
-                <button 
-                  onClick={async () => {
-                    // @ts-ignore
-                    const file = await window.electron.selectFile();
-                    if (file) config.set({ ...$config, installDisk: file });
-                  }} 
-                  class="button-pearl-capsule"
-                >
-                  {t.chooseFile}
-                </button>
-              </div>
             </div>
           </div>
 

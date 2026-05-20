@@ -15,6 +15,7 @@ export const progress = atom(0);
 export const currentStage = atom('');
 export const isInstalling = atom(false);
 export const isDetected = atom(false);
+export const detectedVMs = atom<any[]>([]);
 export const showViewer = atom(false);
 export const isFullScreen = atom(false);
 export const hasAcceptedLegal = atom(false);
