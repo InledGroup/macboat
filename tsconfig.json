@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "paths": {
+      "@backend/*": ["src/backend/*"],
+      "@core/*": ["src/backend/core/*"],
+      "@use-cases/*": ["src/backend/use-cases/*"],
+      "@infrastructure/*": ["src/backend/infrastructure/*"],
+      "@frontend/*": ["src/frontend/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/frontend/**/*"]
+}

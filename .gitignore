@@ -1,1 +1,5 @@
 
+dist-package/
+dist/
+node_modules/
+storage/

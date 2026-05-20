@@ -1,6 +1,8 @@
-<h1 align="center">macOS<br />
+
+<h1 align="center">MacBoat<br/>
+
 <div align="center">
-<a href="https://github.com/dockur/macos/"><img src="https://github.com/dockur/macos/raw/master/.github/logo.png" title="Logo" style="max-width:100%;" width="128" /></a>
+<a href="https://github.com/InledGroup/macboat"><img src="src/frontend/public/macboat.png" title="Logo" style="max-width:100%;" width="128" /></a>
 </div>
 <div align="center">
 
@@ -12,55 +14,18 @@
 
 </div></h1>
 
-MacOS inside a Docker container.
+Use MacOS on Linux and Windows.
 
 ## Features ✨
 
+
+ - Fully grafical setup
+ - Easy configuration 
  - KVM acceleration
  - Web-based viewer
  - Automatic download
 
-## Usage  🐳
 
-##### Via Docker Compose:
-
-```yaml
-services:
-  macos:
-    image: dockurr/macos
-    container_name: macos
-    environment:
-      VERSION: "14"
-    devices:
-      - /dev/kvm
-      - /dev/net/tun
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - 8006:8006
-      - 5900:5900/tcp
-      - 5900:5900/udp
-    volumes:
-      - ./macos:/storage
-    restart: always
-    stop_grace_period: 2m
-```
-
-##### Via Docker CLI:
-
-```bash
-docker run -it --rm --name macos -e "VERSION=14" -p 8006:8006 --device=/dev/kvm --device=/dev/net/tun --cap-add NET_ADMIN -v "${PWD:-.}/macos:/storage" --stop-timeout 120 docker.io/dockurr/macos
-```
-
-##### Via Kubernetes:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/dockur/macos/refs/heads/master/kubernetes.yml
-```
-
-##### Via Github Codespaces:
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/dockur/macos)
 
 ## FAQ 💬
 
@@ -90,12 +55,7 @@ kubectl apply -f https://raw.githubusercontent.com/dockur/macos/refs/heads/maste
 
 ### How do I select the version of macOS?
 
-  By default, macOS 14 (Sonoma) will be installed, but you can add the `VERSION` environment variable in order to specify an alternative:
-
-  ```yaml
-  environment:
-    VERSION: "15"
-  ```
+You can select it on the setup process.
 
   Select from the values below:
   

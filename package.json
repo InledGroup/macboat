@@ -1,0 +1,73 @@
+{
+  "name": "macboat",
+  "productName": "MacBoat",
+  "version": "1.0.0",
+  "description": "MacBoat - macOS inside a Docker container with ease.",
+  "author": "Inled Group <hi@inled.es>",
+  "main": "dist/backend/electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev:frontend": "astro dev",
+    "dev:electron": "NODE_ENV=development npx electron .",
+    "dev": "npm run build:electron && (npm run dev:frontend & sleep 5 && npm run dev:electron)",
+    "build:frontend": "astro build",
+    "build:electron": "tsc -p tsconfig.json",
+    "build": "npm run build:frontend && npm run build:electron && electron-builder",
+    "package:linux": "npm run build:frontend && npm run build:electron && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.macboat.app",
+    "productName": "MacBoat",
+    "directories": {
+      "output": "dist-package"
+    },
+    "icon": "build/icon.png",
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "assets/**/*"
+    ],
+    "linux": {
+      "maintainer": "Inled Group <hi@inled.es>",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Utility",
+      "icon": "build/icon.png"
+    }
+  },
+
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/InledGroup/macboat.git"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/InledGroup/macboat/issues"
+  },
+  "homepage": "https://github.com/InledGroup/macboat#readme",
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@types/electron": "^1.4.38",
+    "@types/node": "^25.9.0",
+    "@types/yaml": "^1.9.6",
+    "@vitest/ui": "^4.1.6",
+    "astro": "^6.3.5",
+    "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "@astrojs/preact": "^5.1.3",
+    "@nanostores/preact": "^1.1.0",
+    "nanostores": "^1.3.0",
+    "preact": "^10.29.2",
+    "usb": "^2.17.0",
+    "yaml": "^2.9.0"
+  }
+}

@@ -42,7 +42,7 @@ async function createWindow() {
     width: 1200,
     height: 800,
     title: 'MacBoat',
-    icon: path.join(__dirname, 'macboat.png'),
+    icon: path.join(__dirname, '../../../assets/macboat.png'),
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       nodeIntegration: false,
@@ -132,6 +132,17 @@ ipcMain.handle('check-system', async () => {
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory']
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('select-file', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      { name: 'Disk Images', extensions: ['dmg', 'img', 'iso', 'qcow2'] }
+    ]
   });
   if (result.canceled) return null;
   return result.filePaths[0];

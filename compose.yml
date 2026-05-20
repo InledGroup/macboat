@@ -2,9 +2,17 @@ services:
   macos:
     image: dockurr/macos
     container_name: macos
+    privileged: true
     environment:
-      VERSION: "14"
+      VERSION: "12"
+      RAM_SIZE: 7G
+      CPU_CORES: "4"
+      DISK_SIZE: 128G
+      DISK_TYPE: blk
+      ALLOCATE: N
+      ARGUMENTS: ""
     devices:
+      - /dev/bus/usb
       - /dev/kvm
       - /dev/net/tun
     cap_add:
@@ -14,6 +22,6 @@ services:
       - 5900:5900/tcp
       - 5900:5900/udp
     volumes:
-      - ./macos:/storage
+      - ./storage:/storage
     restart: always
     stop_grace_period: 2m

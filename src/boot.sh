@@ -5,8 +5,8 @@ set -Eeuo pipefail
 : "${SECURE:="off"}"       # Secure boot
 : "${BOOT_MODE:="macos"}"  # Boot mode
 
-BOOT_DESC=""
-BOOT_OPTS=""
+BOOT_DESC="${BOOT_DESC:-}"
+BOOT_OPTS="${BOOT_OPTS:-}"
 OVMF="/usr/share/OVMF"
 
 msg="Configuring boot..."
@@ -247,6 +247,15 @@ case "$CPU_CORES" in
     error "Invalid amount of CPU_CORES, value \"${CPU_CORES}\" is not a power of 2!" && exit 35
     ;;
 esac
+
+# External Disks (/disk1, /disk2, etc.)
+for i in {1..9}; do
+    DEVICE="/disk$i"
+    if [ -b "$DEVICE" ] || [ -f "$DEVICE" ]; then
+        DISK_OPTS+=" -device virtio-blk-pci,drive=drive$i,bus=pcie.0,addr=0x$(( i + 10 ))"
+        DISK_OPTS+=" -drive file=$DEVICE,id=drive$i,format=raw,cache=unsafe,if=none"
+    fi
+done
 
 USB="nec-usb-xhci,id=xhci"
 USB+=" -device usb-kbd,bus=xhci.0"

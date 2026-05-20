@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electron', {
   checkSystem: () => ipcRenderer.invoke('check-system'),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+  selectFile: () => ipcRenderer.invoke('select-file'),
   startMacOS: (config: any) => ipcRenderer.invoke('start-macos', config),
   stopMacOS: () => ipcRenderer.invoke('stop-macos'),
   checkExistingImage: () => ipcRenderer.invoke('check-existing-image'),

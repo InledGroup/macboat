@@ -3,6 +3,7 @@ export interface MacOSConfig {
   ramSize: string;
   cpuCores: number;
   diskSize: string;
+  installDisk?: string;
   sharedFolders: { hostPath: string; containerPath: string }[];
   usbDevices: { vendorId: string; productId: string }[];
 }

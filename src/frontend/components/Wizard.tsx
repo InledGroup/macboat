@@ -288,7 +288,7 @@ export default function Wizard() {
                     
                     <div class="actions" style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
                       <button 
-                        onClick={() => { step.set(2); }} 
+                        onClick={() => { step.set(3); }} 
                         class="button-primary" 
                         disabled={!allRequirementsMet}
                         style={{ opacity: allRequirementsMet ? 1 : 0.5 }}
@@ -304,34 +304,37 @@ export default function Wizard() {
         </section>
       )}
 
-      {$step === 2 && (
-        <section class="tile product-tile-parchment main-step">
-          <h1 class="display-lg">{t.chooseVersion}</h1>
-          <div class="version-grid">
-            {['15', '14', '13', '12', '11'].map(v => (
-              <div 
-                class={`version-card ${$config.version === v ? 'selected' : ''}`}
-                onClick={() => config.set({ ...$config, version: v })}
-              >
-                <span class="tagline">macOS {v}</span>
-              </div>
-            ))}
-          </div>
-          <div class="actions">
-            <button onClick={() => step.set(1)} class="button-secondary-pill">{t.back}</button>
-            <button onClick={() => {
-                step.set(3);
-            }} class="button-primary">{t.continue}</button>
-          </div>
-        </section>
-      )}
-
       {$step === 3 && (
         <section class="tile product-tile-light main-step">
           <h1 class="display-lg">{t.configureHardware}</h1>
           <p class="body" style={{ marginBottom: '20px' }}>{t.performanceNote}</p>
           
           <div class="resource-grid">
+            <div class="resource-item" style={{ gridColumn: '1 / -1', marginBottom: '20px', padding: '20px', backgroundColor: 'var(--color-canvas-parchment)', borderRadius: '12px' }}>
+              <div class="resource-label" style={{ marginBottom: '15px' }}>
+                <span style={{ fontSize: '20px', fontWeight: '600' }}>{t.chooseVersion}</span>
+              </div>
+              <div class="version-select-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                {['15', '14', '13', '12', '11'].map(v => (
+                  <div 
+                    onClick={() => config.set({ ...$config, version: v })}
+                    style={{ 
+                      padding: '15px', 
+                      textAlign: 'center', 
+                      borderRadius: '10px', 
+                      cursor: 'pointer',
+                      border: $config.version === v ? '2px solid var(--color-primary)' : '1px solid var(--color-hairline)',
+                      backgroundColor: $config.version === v ? 'rgba(0,102,204,0.05)' : 'white',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontWeight: '700', fontSize: '18px', color: $config.version === v ? 'var(--color-primary)' : 'var(--color-ink)' }}>macOS {v}</div>
+                    <div class="caption" style={{ opacity: 0.6 }}>{v === '15' ? 'Sequoia' : v === '14' ? 'Sonoma' : v === '13' ? 'Ventura' : v === '12' ? 'Monterey' : 'Big Sur'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div class="resource-item">
               <div class="resource-label">
                 <span>{t.ramSize} <span class="recommendation-tag">{t.recommended}: {recRAM}G</span></span>
@@ -370,10 +373,36 @@ export default function Wizard() {
                 class="resource-slider"
               />
             </div>
+
+            <div class="resource-item" style={{ gridColumn: '1 / -1', marginTop: '20px', borderTop: '1px solid var(--color-hairline)', paddingTop: '20px' }}>
+              <div class="resource-label">
+                <span>{t.selectDisk}</span>
+              </div>
+              <p class="caption" style={{ marginBottom: '10px' }}>{t.selectDiskDesc}</p>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  placeholder="/dev/sdX o /path/to/image.img"
+                  value={$config.installDisk || ''}
+                  onChange={(e) => config.set({ ...$config, installDisk: (e.target as HTMLInputElement).value })}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--color-hairline)' }}
+                />
+                <button 
+                  onClick={async () => {
+                    // @ts-ignore
+                    const file = await window.electron.selectFile();
+                    if (file) config.set({ ...$config, installDisk: file });
+                  }} 
+                  class="button-pearl-capsule"
+                >
+                  {t.chooseFile}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="actions">
-            <button onClick={() => step.set($isDetected ? 1 : 2)} class="button-secondary-pill">{t.back}</button>
+            <button onClick={() => step.set(1)} class="button-secondary-pill">{t.back}</button>
             <button onClick={() => step.set(4)} class="button-primary">{t.continue}</button>
           </div>
         </section>
@@ -424,6 +453,11 @@ export default function Wizard() {
             </>
           ) : (
             <div class={`viewer-container ${$isFullScreen ? 'full-screen' : ''}`}>
+              {!$isFullScreen && (
+                <div style={{ backgroundColor: 'rgba(0,102,204,0.1)', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '4px solid var(--color-primary)' }}>
+                  <p class="caption" style={{ color: 'var(--color-primary)', margin: 0, fontWeight: 600 }}>{t.diskUtilityNote}</p>
+                </div>
+              )}
               <iframe key={iframeKey} src="http://localhost:8006/?autoconnect=1&resize=scale" class="macos-iframe"></iframe>
               <button onClick={toggleFullScreen} class="fullscreen-toggle">
                 {$isFullScreen ? t.exitFullScreen : t.fullScreen}

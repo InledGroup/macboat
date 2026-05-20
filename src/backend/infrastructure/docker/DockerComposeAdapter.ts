@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { YAMLMap, Document } from 'yaml';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
@@ -51,7 +52,7 @@ export class DockerComposeAdapter implements DockerRepository {
             ALLOCATE: 'N',
             ARGUMENTS: usbArgs
           },
-          devices,
+          devices: [...devices],
           cap_add: ['NET_ADMIN'],
           ports: [
             '8006:8006',
@@ -66,6 +67,16 @@ export class DockerComposeAdapter implements DockerRepository {
         }
       }
     };
+
+    if (config.installDisk) {
+      // Si es un dispositivo físico
+      if (config.installDisk.startsWith('/dev/')) {
+        compose.services.macos.devices.push(`${config.installDisk}:/disk1`);
+      } else {
+        // Si es un archivo de imagen
+        compose.services.macos.volumes.push(`${config.installDisk}:/disk1`);
+      }
+    }
 
     // Add shared folders
     config.sharedFolders.forEach((folder, index) => {
