@@ -22,36 +22,48 @@ export default function Wizard() {
   const logRef = useRef<HTMLPreElement>(null);
   const [iframeKey, setIframeKey] = useState(0);
 
-  useEffect(() => {
-    // Check system requirements and existing image on load
-    const init = async () => {
-      try {
-        // @ts-ignore
-        const status = await window.electron.checkSystem();
-        systemStatus.set(status);
+  const init = async () => {
+    try {
+      // @ts-ignore
+      const status = await window.electron.checkSystem();
+      systemStatus.set(status);
 
-        if (status) {
-          const recRAM = Math.min(8, Math.floor(status.totalMemory - 4));
-          const recCores = Math.floor(status.totalCores);
-          config.set({
-            ...$config,
-            ramSize: `${Math.max(4, recRAM)}G`,
-            cpuCores: recCores,
-            diskSize: '128G'
-          });
-        }
-
-        // @ts-ignore
-        const vms = await window.electron.checkExistingImage();
-        detectedVMs.set(vms);
-        isDetected.set(vms.length > 0);
-        
-      } catch (e) {
-        console.error('Wizard init error:', e);
+      if (status) {
+        const recRAM = Math.min(8, Math.floor(status.totalMemory - 4));
+        const recCores = Math.floor(status.totalCores);
+        config.set({
+          ...$config,
+          ramSize: `${Math.max(4, recRAM)}G`,
+          cpuCores: recCores,
+          diskSize: '128G'
+        });
       }
-    };
+
+      refreshVMs();
+      
+    } catch (e) {
+      console.error('Wizard init error:', e);
+    }
+  };
+
+  const refreshVMs = async () => {
+    // @ts-ignore
+    const vms = await window.electron.checkExistingImage();
+    detectedVMs.set(vms);
+    isDetected.set(vms.length > 0);
+  };
+
+  useEffect(() => {
     init();
   }, []);
+
+  const deleteVM = async (version: string) => {
+    // @ts-ignore
+    const result = await window.electron.deleteVM(version);
+    if (result && result.ok) {
+      refreshVMs();
+    }
+  };
 
   useEffect(() => {
     // @ts-ignore
@@ -119,6 +131,10 @@ export default function Wizard() {
   };
 
   const startInstall = async (existingConfig?: any) => {
+    // Detectar si es una VM nueva o incompleta para mostrar ayuda
+    const targetVM = $vms.find(vm => vm.version === (existingConfig?.version || $config.version));
+    const isNew = !targetVM || !targetVM.hasData;
+
     step.set(5); 
     isInstalling.set(true);
     showViewer.set(false);
@@ -131,6 +147,12 @@ export default function Wizard() {
       const runConfig = existingConfig || { ...$config };
       // @ts-ignore
       await window.electron.startMacOS(runConfig);
+
+      // Si es una instalación nueva, abrir ayuda automáticamente
+      if (isNew) {
+        // @ts-ignore
+        window.electron.openHelp($lang);
+      }
     } catch (error) {
       logs.set(logs.get() + '\n' + t.fatalError + error + '\n');
       isInstalling.set(false);
@@ -236,7 +258,18 @@ export default function Wizard() {
             <div class="vm-dashboard" style={{ width: '100%', marginTop: '30px' }}>
               <div class="vm-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px', marginBottom: '40px' }}>
                 {$vms.map(vm => (
-                  <div class="vm-card tile" style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f5f5f7', border: '1px solid var(--color-hairline)' }}>
+                  <div class="vm-card tile" style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f5f5f7', border: '1px solid var(--color-hairline)', position: 'relative' }}>
+                    <button 
+                      onClick={() => deleteVM(vm.version)}
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, transition: 'opacity 0.2s' }}
+                      onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+                      onMouseOut={(e) => (e.currentTarget.style.opacity = '0.4')}
+                      title="Eliminar VM"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff3b30">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                    </button>
                     <div style={{ fontSize: '48px', marginBottom: '10px' }}></div>
                     <h3 class="headline" style={{ marginBottom: '15px' }}>{vm.name}</h3>
                     <div class="actions" style={{ justifyContent: 'center' }}>

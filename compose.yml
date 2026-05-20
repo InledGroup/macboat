@@ -4,13 +4,13 @@ services:
     container_name: macos
     privileged: true
     environment:
-      VERSION: "12"
+      VERSION: "11"
       RAM_SIZE: 7G
       CPU_CORES: "4"
       DISK_SIZE: 128G
       DISK_TYPE: blk
       ALLOCATE: N
-      ARGUMENTS: -device usb-host,vendorid=0x046d,productid=0xc31c
+      ARGUMENTS: ""
     devices:
       - /dev/bus/usb
       - /dev/kvm

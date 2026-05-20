@@ -17,6 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
+let helpWindow: BrowserWindow | null = null;
 let currentConfig: MacOSConfig = {
   version: '15',
   ramSize: '6G',
@@ -64,6 +65,98 @@ async function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+async function createHelpWindow(lang: 'es' | 'en' = 'es') {
+  if (helpWindow) {
+    helpWindow.focus();
+    return;
+  }
+
+  helpWindow = new BrowserWindow({
+    width: 600,
+    height: 750,
+    title: lang === 'es' ? 'Instrucciones de Instalación' : 'Installation Instructions',
+    parent: mainWindow || undefined,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    backgroundColor: '#f5f5f7',
+  });
+
+  const content = {
+    es: {
+      title: '¿Cómo instalar macOS?',
+      intro: 'Sigue estos pasos para completar la instalación:',
+      integrity: '<strong>Nota técnica:</strong> Realizamos este proceso de forma manual para garantizar la <strong>integridad total de la imagen original</strong> de macOS. Al no automatizar el formateo, evitamos modificar la estructura de datos que Apple espera encontrar, asegurando un sistema más estable y fiel al hardware real.',
+      step1: 'Elige <strong>Utilidad de Discos</strong> (Disk Utility) y selecciona el disco <strong>Apple Inc. VirtIO Block Media</strong> más grande.',
+      step2: 'Pulsa el botón <strong>Borrar</strong> (Erase) para formatear el disco como <strong>APFS</strong> y ponle el nombre que quieras.',
+      step3: 'Cierra la ventana actual y procede con la instalación pulsando en <strong>Reinstalar macOS</strong>.',
+      step4: 'Cuando te pregunte dónde instalarlo, selecciona el disco que acabas de crear.',
+      step5: 'Tras copiar los archivos, selecciona tu región, idioma y configuración de teclado.',
+      step6: 'Cuando el <strong>Asistente de Migración</strong> quiera transferir datos, selecciona <strong>Ahora no</strong> (abajo a la izquierda).',
+      step7: 'En la pantalla de <strong>Apple ID</strong>, elige <strong>Configurar más tarde</strong> (abajo a la izquierda) y pulsa en <strong>Omitir</strong>.',
+      step8: 'En la pantalla de <strong>Crear cuenta</strong>, rellena tu usuario y contraseña y pulsa en Continuar.',
+      footer: 'Disfruta de tu nueva máquina virtual. ¡No olvides darle una estrella al repositorio!'
+    },
+    en: {
+      title: 'How to install macOS?',
+      intro: 'Follow these steps to complete the installation:',
+      integrity: '<strong>Technical note:</strong> We perform this process manually to guarantee the <strong>total integrity of the original macOS image</strong>. By not automating the formatting, we avoid modifying the data structure that Apple expects to find, ensuring a more stable system that is faithful to real hardware.',
+      step1: 'Choose <strong>Disk Utility</strong> and then select the largest <strong>Apple Inc. VirtIO Block Media</strong> disk.',
+      step2: 'Click the <strong>Erase</strong> button to format the disk to APFS, and give it any name you like.',
+      step3: 'Close the current window and proceed the installation by clicking <strong>Reinstall macOS</strong>.',
+      step4: 'When prompted where you want to install it, select the disk you created previously.',
+      step5: 'After all files are copied, select your region, language, and keyboard settings.',
+      step6: 'When the <strong>Migration Assistant</strong> wants to transfer data, select <strong>Not now</strong> (bottom left).',
+      step7: 'On the <strong>Apple ID</strong> screen, select <strong>Set Up Later</strong> (bottom left) and then proceed using <strong>Skip</strong>.',
+      step8: 'On the <strong>Create a Computer Account</strong> screen, fill in a username and password and <strong>Continue</strong>.',
+      footer: 'Enjoy your brand new machine, and don\'t forget to star this repo!'
+    }
+  };
+
+  const t = content[lang];
+
+  const html = `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #1d1d1f; background: #f5f5f7; }
+          h1 { font-size: 24px; font-weight: 600; margin-bottom: 10px; }
+          .integrity-box { background: #ffffff; border-left: 4px solid #0066cc; padding: 15px; margin: 20px 0; border-radius: 4px; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+          ol { padding-left: 20px; }
+          li { margin-bottom: 15px; }
+          strong { font-weight: 600; }
+          .footer { margin-top: 40px; font-size: 14px; opacity: 0.7; border-top: 1px solid #d2d2d7; padding-top: 20px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <h1>${t.title}</h1>
+        <div class="integrity-box">${t.integrity}</div>
+        <p>${t.intro}</p>
+        <ol>
+          <li>${t.step1}</li>
+          <li>${t.step2}</li>
+          <li>${t.step3}</li>
+          <li>${t.step4}</li>
+          <li>${t.step5}</li>
+          <li>${t.step6}</li>
+          <li>${t.step7}</li>
+          <li>${t.step8}</li>
+        </ol>
+        <div class="footer">
+          ${t.footer}
+        </div>
+      </body>
+    </html>
+  `;
+
+  helpWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+  helpWindow.on('closed', () => {
+    helpWindow = null;
   });
 }
 
@@ -188,6 +281,42 @@ ipcMain.handle('stop-macos', async () => {
 ipcMain.handle('check-existing-image', async () => {
   const projectPath = process.cwd();
   return await checkExistingImage.execute(projectPath);
+});
+
+ipcMain.handle('delete-vm', async (event, version: string) => {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    buttons: ['Cancelar', 'Eliminar permanentemente'],
+    defaultId: 0,
+    title: 'Confirmar eliminación',
+    message: `¿Estás seguro de que quieres eliminar macOS ${version}?`,
+    detail: 'Esta acción borrará todos los datos instalados y no se puede deshacer.',
+    cancelId: 0
+  });
+
+  if (result.response === 1) {
+    try {
+      const projectPath = process.cwd();
+      const vmPath = path.join(projectPath, 'storage', version);
+      
+      // Intentar detener el contenedor primero por si acaso
+      const composePath = path.join(projectPath, 'compose.yml');
+      try {
+        await dockerAdapter.stop(composePath);
+      } catch {}
+
+      await fs.rm(vmPath, { recursive: true, force: true });
+      return { ok: true };
+    } catch (error: any) {
+      console.error('Error deleting VM:', error);
+      throw error;
+    }
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('open-help', async (event, lang: 'es' | 'en') => {
+  await createHelpWindow(lang);
 });
 
 ipcMain.handle('get-config', () => currentConfig);
