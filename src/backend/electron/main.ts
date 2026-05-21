@@ -178,10 +178,15 @@ monitorUSB.onDeviceChange(async (device, type) => {
   }
 });
 
+// Función para obtener la ruta base de datos (Home del usuario en prod, cwd en dev)
+function getBasePath() {
+  return app.isPackaged ? app.getPath('home') : process.cwd();
+}
+
 async function applyConfig() {
   try {
-    const projectPath = process.cwd();
-    const composePath = await generateCompose.execute(currentConfig, projectPath);
+    const basePath = getBasePath();
+    const composePath = await generateCompose.execute(currentConfig, basePath);
     await dockerAdapter.start(composePath);
     mainWindow?.webContents.send('status-update', { message: 'Configuración aplicada y contenedor reiniciado' });
   } catch (error: any) {
@@ -245,8 +250,8 @@ ipcMain.handle('select-file', async () => {
 ipcMain.handle('start-macos', async (event, config: Partial<MacOSConfig>) => {
   try {
     currentConfig = { ...currentConfig, ...config };
-    const projectPath = process.cwd();
-    const composePath = await generateCompose.execute(currentConfig, projectPath);
+    const basePath = getBasePath();
+    const composePath = await generateCompose.execute(currentConfig, basePath);
     
     // Start container - not awaiting to avoid blocking the transition
     dockerAdapter.start(composePath).catch(err => {
@@ -268,8 +273,8 @@ ipcMain.handle('start-macos', async (event, config: Partial<MacOSConfig>) => {
 
 ipcMain.handle('stop-macos', async () => {
   try {
-    const projectPath = process.cwd();
-    const composePath = path.join(projectPath, 'compose.yml');
+    const basePath = getBasePath();
+    const composePath = path.join(basePath, 'compose.yml');
     await dockerAdapter.stop(composePath);
     return { ok: true };
   } catch (error: any) {
@@ -279,8 +284,8 @@ ipcMain.handle('stop-macos', async () => {
 });
 
 ipcMain.handle('check-existing-image', async () => {
-  const projectPath = process.cwd();
-  return await checkExistingImage.execute(projectPath);
+  const basePath = getBasePath();
+  return await checkExistingImage.execute(basePath);
 });
 
 ipcMain.handle('delete-vm', async (event, version: string) => {
@@ -296,11 +301,11 @@ ipcMain.handle('delete-vm', async (event, version: string) => {
 
   if (result.response === 1) {
     try {
-      const projectPath = process.cwd();
-      const vmPath = path.join(projectPath, 'storage', version);
+      const basePath = getBasePath();
+      const vmPath = path.join(basePath, 'storage', version);
       
       // Intentar detener el contenedor primero por si acaso
-      const composePath = path.join(projectPath, 'compose.yml');
+      const composePath = path.join(basePath, 'compose.yml');
       try {
         await dockerAdapter.stop(composePath);
       } catch {}

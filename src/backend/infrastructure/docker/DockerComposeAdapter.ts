@@ -87,7 +87,22 @@ export class DockerComposeAdapter implements DockerRepository {
     await fs.writeFile(outputPath, doc.toString());
   }
 
+  private async getComposeCommand(): Promise<string> {
+    try {
+      await execAsync('docker compose version');
+      return 'docker compose';
+    } catch {
+      try {
+        await execAsync('docker-compose version');
+        return 'docker-compose';
+      } catch {
+        throw new Error('No se encontró "docker compose" ni "docker-compose" en el sistema.');
+      }
+    }
+  }
+
   async start(composePath: string): Promise<void> {
+    const composeCmd = await this.getComposeCommand();
     try {
       // Intentar matar procesos que ocupen los puertos configurados antes de arrancar
       if (this.systemRepository) {
@@ -96,19 +111,33 @@ export class DockerComposeAdapter implements DockerRepository {
       }
       
       // Intentar detener cualquier instancia previa que pueda estar bloqueando puertos
-      await execAsync(`docker compose -f ${composePath} down --remove-orphans`);
+      await execAsync(`${composeCmd} -f ${composePath} down --remove-orphans`);
     } catch (e) {
       console.log('DockerComposeAdapter: No se pudo bajar el contenedor previo o matar proceso:', e);
     }
-    await execAsync(`docker compose -f ${composePath} up -d`);
+    
+    try {
+      await execAsync(`${composeCmd} -f ${composePath} up -d`);
+    } catch (e: any) {
+      console.error('Error al ejecutar docker compose up:', e);
+      throw new Error(`Error al iniciar Docker: ${e.message}`);
+    }
   }
 
   async stop(composePath: string): Promise<void> {
-    await execAsync(`docker compose -f ${composePath} stop`);
+    const composeCmd = await this.getComposeCommand();
+    await execAsync(`${composeCmd} -f ${composePath} stop`);
   }
 
-  getLogs(composePath: string, callback: (log: string) => void): void {
-    const child = spawn('docker', ['compose', '-f', composePath, 'logs', '-f']);
+  async getLogs(composePath: string, callback: (log: string) => void): Promise<void> {
+    const composeCmd = await this.getComposeCommand();
+    const args = composeCmd === 'docker compose' 
+      ? ['compose', '-f', composePath, 'logs', '-f']
+      : ['-f', composePath, 'logs', '-f'];
+    
+    const cmd = composeCmd === 'docker compose' ? 'docker' : 'docker-compose';
+    const child = spawn(cmd, args);
+    
     child.stdout.on('data', (data) => callback(data.toString()));
     child.stderr.on('data', (data) => callback(data.toString()));
   }
