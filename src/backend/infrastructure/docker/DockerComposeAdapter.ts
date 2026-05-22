@@ -87,39 +87,63 @@ export class DockerComposeAdapter implements DockerRepository {
     await fs.writeFile(outputPath, doc.toString());
   }
 
+  private async getDockerPath(): Promise<string> {
+    if (this.systemRepository && (this.systemRepository as any).getDockerExecutable) {
+      return await (this.systemRepository as any).getDockerExecutable();
+    }
+    return 'docker';
+  }
+
   private async getComposeCommand(): Promise<string> {
+    const dockerPath = await this.getDockerPath();
     try {
-      await execAsync('docker compose version');
-      return 'docker compose';
-    } catch {
+      await execAsync(`${dockerPath} compose version`);
+      return `${dockerPath} compose`;
+    } catch (e1: any) {
+      console.log(`DockerComposeAdapter: "${dockerPath} compose" no disponible, probando con comando standalone...`);
+      
+      // Si el dockerPath es un ejecutable específico, intentamos buscar docker-compose en la misma carpeta
+      let standaloneCmd = 'docker-compose';
+      if (dockerPath.includes('/')) {
+        const binDir = path.dirname(dockerPath);
+        standaloneCmd = path.join(binDir, 'docker-compose');
+      }
+
       try {
-        await execAsync('docker-compose version');
-        return 'docker-compose';
-      } catch {
-        throw new Error('No se encontró "docker compose" ni "docker-compose" en el sistema.');
+        await execAsync(`${standaloneCmd} version`);
+        return standaloneCmd;
+      } catch (e2: any) {
+        const errorMsg = 'No se encontró "docker compose" ni "docker-compose" en el sistema. Por favor, asegúrate de que Docker está instalado o especifica su ruta en la configuración.';
+        console.error('DockerComposeAdapter:', errorMsg, { e1: e1.message, e2: e2.message });
+        throw new Error(errorMsg);
       }
     }
   }
 
   async start(composePath: string): Promise<void> {
     const composeCmd = await this.getComposeCommand();
+    console.log(`DockerComposeAdapter: Iniciando con comando "${composeCmd}" y archivo "${composePath}"`);
     try {
       // Intentar matar procesos que ocupen los puertos configurados antes de arrancar
       if (this.systemRepository) {
+        console.log('DockerComposeAdapter: Intentando liberar puertos...');
         await this.systemRepository.killPortProcess(8006);
         await this.systemRepository.killPortProcess(5900);
       }
       
       // Intentar detener cualquier instancia previa que pueda estar bloqueando puertos
+      console.log('DockerComposeAdapter: Bajando instancias previas...');
       await execAsync(`${composeCmd} -f ${composePath} down --remove-orphans`);
     } catch (e) {
-      console.log('DockerComposeAdapter: No se pudo bajar el contenedor previo o matar proceso:', e);
+      console.log('DockerComposeAdapter: Aviso - No se pudo bajar el contenedor previo o matar proceso:', e);
     }
     
     try {
+      console.log('DockerComposeAdapter: Ejecutando up -d...');
       await execAsync(`${composeCmd} -f ${composePath} up -d`);
+      console.log('DockerComposeAdapter: Comando up ejecutado con éxito');
     } catch (e: any) {
-      console.error('Error al ejecutar docker compose up:', e);
+      console.error('DockerComposeAdapter: Error fatal al ejecutar docker compose up:', e);
       throw new Error(`Error al iniciar Docker: ${e.message}`);
     }
   }

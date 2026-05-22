@@ -71,7 +71,12 @@ export const translations = {
     installStarted: "--- Iniciando proceso de instalación ---",
     fatalError: "ERROR FATAL: ",
     stoppedByUser: "Proceso detenido por el usuario.",
-    system: "[SISTEMA] "
+    system: "[SISTEMA] ",
+    dockerPathTitle: "Configuración de Docker",
+    dockerPathDesc: "No hemos podido encontrar el ejecutable de Docker automáticamente. Por favor, introduce la ruta manualmente:",
+    dockerPathPlaceholder: "Ej: /usr/bin/docker",
+    savePath: "Guardar y Reintentar",
+    invalidPath: "La ruta proporcionada no es válida o Docker no funciona en esa ubicación."
   },
   en: {
     welcome: "Welcome to MacBoat",
@@ -145,6 +150,11 @@ export const translations = {
     installStarted: "--- Starting installation process ---",
     fatalError: "FATAL ERROR: ",
     stoppedByUser: "Process stopped by user.",
-    system: "[SYSTEM] "
+    system: "[SYSTEM] ",
+    dockerPathTitle: "Docker Configuration",
+    dockerPathDesc: "We could not find the Docker executable automatically. Please enter the path manually:",
+    dockerPathPlaceholder: "E.g.: /usr/bin/docker",
+    savePath: "Save & Retry",
+    invalidPath: "The provided path is invalid or Docker does not work at that location."
   }
 };

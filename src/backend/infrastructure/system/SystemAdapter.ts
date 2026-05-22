@@ -35,9 +35,39 @@ export class SystemAdapter implements SystemRepository {
     };
   }
 
+  private customDockerPath: string | null = null;
+
+  setCustomDockerPath(path: string) {
+    this.customDockerPath = path;
+  }
+
+  async getDockerExecutable(): Promise<string> {
+    if (this.customDockerPath) return this.customDockerPath;
+
+    const commonPaths = [
+      'docker', // Try default PATH first
+      '/usr/local/bin/docker',
+      '/usr/bin/docker',
+      '/bin/docker',
+      '/snap/bin/docker',
+      '/opt/homebrew/bin/docker', // macOS Homebrew
+      '/usr/local/lib/docker'
+    ];
+
+    for (const p of commonPaths) {
+      try {
+        await execAsync(`${p} --version`);
+        return p;
+      } catch {}
+    }
+
+    throw new Error('Docker executable not found');
+  }
+
   private async checkIsDockerDesktop(): Promise<boolean> {
     try {
-      const { stdout } = await execAsync('docker context show');
+      const docker = await this.getDockerExecutable();
+      const { stdout } = await execAsync(`${docker} context show`);
       return stdout.includes('desktop-linux');
     } catch {
       return false;
@@ -48,15 +78,12 @@ export class SystemAdapter implements SystemRepository {
     const platform = os.platform();
     if (platform === 'linux') {
       try {
-        // Buscamos si hay procesos en el puerto
         const { stdout } = await execAsync(`lsof -t -i:${port}`);
         if (stdout.trim()) {
           console.log(`SystemAdapter: Matando procesos en el puerto ${port}...`);
-          // Usamos pkexec para elevar privilegios si es necesario
           await execAsync(`pkexec kill -9 ${stdout.trim().split('\n').join(' ')}`);
         }
       } catch (e) {
-        // lsof devuelve error si no hay procesos, así que lo ignoramos si es el caso
         console.log(`SystemAdapter: No se encontraron procesos en el puerto ${port} o error al matar:`, e);
       }
     }
@@ -64,7 +91,7 @@ export class SystemAdapter implements SystemRepository {
 
   private async isDockerInstalled(): Promise<boolean> {
     try {
-      await execAsync('docker --version');
+      await this.getDockerExecutable();
       return true;
     } catch {
       return false;
@@ -73,7 +100,8 @@ export class SystemAdapter implements SystemRepository {
 
   private async isDockerRunning(): Promise<boolean> {
     try {
-      await execAsync('docker info');
+      const docker = await this.getDockerExecutable();
+      await execAsync(`${docker} info`);
       return true;
     } catch {
       return false;
@@ -91,12 +119,14 @@ export class SystemAdapter implements SystemRepository {
   }
 
   async checkKVM(): Promise<boolean> {
-    if (os.platform() !== 'linux') return true; // Windows has WSL2/Hyper-V usually
+    if (os.platform() !== 'linux') return true;
     try {
       const { stdout } = await execAsync('kvm-ok');
       return stdout.includes('KVM acceleration can be used');
     } catch {
       try {
+        const docker = await this.getDockerExecutable();
+        // Sometimes users might have docker but not kvm-ok, check /dev/kvm
         await execAsync('test -e /dev/kvm');
         return true;
       } catch {

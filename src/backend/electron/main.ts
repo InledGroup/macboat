@@ -16,6 +16,17 @@ import { CheckExistingImage } from '../use-cases/CheckExistingImage.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Fix PATH for packaged apps on Linux/macOS
+if (app.isPackaged && process.platform !== 'win32') {
+  const commonPaths = ['/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin'];
+  const currentPath = process.env.PATH || '';
+  const missingPaths = commonPaths.filter(p => !currentPath.includes(p));
+  if (missingPaths.length > 0) {
+    process.env.PATH = [...missingPaths, ...currentPath.split(':')].join(':');
+    console.log('Main: PATH updated with:', missingPaths);
+  }
+}
+
 let mainWindow: BrowserWindow | null = null;
 let helpWindow: BrowserWindow | null = null;
 let currentConfig: MacOSConfig = {
@@ -196,15 +207,15 @@ async function applyConfig() {
 }
 
 app.whenReady().then(async () => {
-  // Asegurar que los puertos necesarios están libres al arrancar la app
+  createWindow();
+
+  // Asegurar que los puertos necesarios están libres al arrancar la app (después de abrir ventana)
   try {
-    await systemAdapter.killPortProcess(8006);
-    await systemAdapter.killPortProcess(5900);
+    systemAdapter.killPortProcess(8006).catch(e => console.error('Error kill 8006:', e));
+    systemAdapter.killPortProcess(5900).catch(e => console.error('Error kill 5900:', e));
   } catch (e) {
     console.error('Error al intentar liberar los puertos al inicio:', e);
   }
-
-  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -216,6 +227,11 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
+ipcMain.handle('set-docker-path', async (event, path: string) => {
+  systemAdapter.setCustomDockerPath(path);
+  return await checkSystem.execute();
+});
+
 ipcMain.handle('check-system', async () => {
   try {
     console.log('Backend: Ejecutando check-system...');

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electron', {
   checkExistingImage: () => ipcRenderer.invoke('check-existing-image'),
   deleteVM: (version: string) => ipcRenderer.invoke('delete-vm', version),
   openHelp: (lang: 'es' | 'en') => ipcRenderer.invoke('open-help', lang),
+  setDockerPath: (path: string) => ipcRenderer.invoke('set-docker-path', path),
   getConfig: () => ipcRenderer.invoke('get-config'),
   onStatusUpdate: (callback: any) => {
     const subscription = (_event: any, value: any) => callback(value);

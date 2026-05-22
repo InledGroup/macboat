@@ -22,6 +22,9 @@ export default function Wizard() {
   const logRef = useRef<HTMLPreElement>(null);
   const [iframeKey, setIframeKey] = useState(0);
 
+  const [manualPath, setManualPath] = useState('');
+  const [isPathError, setIsPathError] = useState(false);
+
   const init = async () => {
     try {
       // @ts-ignore
@@ -46,6 +49,22 @@ export default function Wizard() {
     }
   };
 
+  const handleManualPath = async () => {
+    setIsPathError(false);
+    try {
+      // @ts-ignore
+      const status = await window.electron.setDockerPath(manualPath);
+      if (status && status.dockerInstalled) {
+        systemStatus.set(status);
+        init();
+      } else {
+        setIsPathError(true);
+      }
+    } catch (e) {
+      setIsPathError(true);
+    }
+  };
+
   const refreshVMs = async () => {
     // @ts-ignore
     const vms = await window.electron.checkExistingImage();
@@ -67,7 +86,7 @@ export default function Wizard() {
 
   useEffect(() => {
     // @ts-ignore
-    const unsubscribe = window.electron.onDockerLogs((newLog: string) => {
+    const unsubscribeLogs = window.electron.onDockerLogs((newLog: string) => {
       logs.set(logs.get() + newLog);
       
       const percentMatch = newLog.match(/(\d+)%/);
@@ -102,7 +121,21 @@ export default function Wizard() {
       }
     });
 
-    return () => unsubscribe();
+    // @ts-ignore
+    const unsubscribeStatus = window.electron.onStatusUpdate((status: any) => {
+      console.log('Status Update:', status);
+      if (status.message) {
+        logs.set(logs.get() + '\n[STATUS] ' + status.message + '\n');
+        if (status.message.toLowerCase().includes('error')) {
+          isInstalling.set(false);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeLogs();
+      unsubscribeStatus();
+    };
   }, [$lang]);
 
   useEffect(() => {
@@ -309,6 +342,25 @@ export default function Wizard() {
                   </div>
                 ) : (
                   <div class="checklist-items">
+                    {!$systemStatus.dockerInstalled && (
+                      <div class="tile" style={{ padding: '20px', marginBottom: '20px', backgroundColor: 'rgba(255, 59, 48, 0.05)', border: '1px solid #ff3b30' }}>
+                        <h3 class="headline" style={{ color: '#ff3b30', marginBottom: '10px' }}>{t.dockerPathTitle}</h3>
+                        <p class="caption" style={{ marginBottom: '15px' }}>{t.dockerPathDesc}</p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <input 
+                            type="text" 
+                            placeholder={t.dockerPathPlaceholder} 
+                            value={manualPath}
+                            onInput={(e) => setManualPath((e.target as HTMLInputElement).value)}
+                            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--color-hairline)' }}
+                          />
+                          <button onClick={handleManualPath} class="button-primary" style={{ padding: '10px 20px' }}>
+                            {t.savePath}
+                          </button>
+                        </div>
+                        {isPathError && <p class="caption" style={{ color: '#ff3b30', marginTop: '10px' }}>{t.invalidPath}</p>}
+                      </div>
+                    )}
                     <div class={`check-item ${$systemStatus.dockerInstalled ? 'ok' : 'fail'}`}>
                       {$systemStatus.dockerInstalled ? '✓' : '✗'} {t.dockerInstalled}
                     </div>
