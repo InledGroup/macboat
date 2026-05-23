@@ -174,6 +174,17 @@ export default function Wizard() {
   };
 
   useEffect(() => {
+    // Retry iframe every 3s until we confirm it's showing (based on logs)
+    let timer: any;
+    if ($isInstalling && !$showViewer) {
+      timer = setInterval(() => {
+        setIframeKey(prev => prev + 1);
+      }, 3000);
+    }
+    return () => timer && clearInterval(timer);
+  }, [$isInstalling, $showViewer]);
+
+  useEffect(() => {
     // Refresh VMs when showing dashboard
     if ($step === 1) {
       refreshVMs();
@@ -307,26 +318,9 @@ export default function Wizard() {
     );
   }
 
-  const [isDockExpanded, setIsDockExpanded] = useState(true);
-  const [dockPosition, setDockPosition] = useState<'bottom' | 'left' | 'right'>('bottom');
+  return (
+    <div class="wizard-container">
 
-  const cycleDockPosition = () => {
-    if (dockPosition === 'bottom') setDockPosition('left');
-    else if (dockPosition === 'left') setDockPosition('right');
-    else setDockPosition('bottom');
-  };
-
-  useEffect(() => {
-    // Retry iframe if it's not loading correctly (once per 3s until showViewer is true)
-    if ($isInstalling && !$showViewer) {
-      const timer = setInterval(() => {
-        setIframeKey(prev => prev + 1);
-      }, 3000);
-      return () => clearInterval(timer);
-    }
-  }, [$isInstalling, $showViewer]);
-      {!$isFullScreen && (
-        <div class="language-selector">
           <button onClick={() => language.set('es')} class={$lang === 'es' ? 'active' : ''}>ES</button>
           <button onClick={() => language.set('en')} class={$lang === 'en' ? 'active' : ''}>EN</button>
         </div>

@@ -499,18 +499,25 @@ const { title } = Astro.props;
 		margin-left: -1px;
 	}
 
+	.macos-dock-container.collapsed .dock-handle {
+		background: var(--color-primary);
+		opacity: 0.8;
+		border-color: rgba(255, 255, 255, 0.5);
+		box-shadow: 0 0 15px var(--color-primary);
+	}
+
 	.expand-icon {
 		position: absolute;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		animation: pulse 2s infinite;
+		animation: pulse 1.5s infinite;
 	}
 
 	@keyframes pulse {
-		0% { opacity: 0.4; }
-		50% { opacity: 1; }
-		100% { opacity: 0.4; }
+		0% { transform: scale(0.8); opacity: 0.5; }
+		50% { transform: scale(1.1); opacity: 1; }
+		100% { transform: scale(0.8); opacity: 0.5; }
 	}
 
 	.macos-dock {

@@ -17,12 +17,15 @@ export default defineConfig({
     server: {
       watch: {
         ignored: [
-          '**/storage/**',
-          '**/settings.json',
+          '**/storage/**/*',
+          '**/*.json',
+          '**/*.yml',
+          '**/*.yaml',
           '**/*.img',
           '**/*.dmg',
-          '**/compose.yml',
-          '**/macboat.json'
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/.git/**'
         ]
       }
     }
