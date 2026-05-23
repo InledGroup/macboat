@@ -19,13 +19,16 @@ export default defineConfig({
         ignored: [
           '**/storage/**',
           '**/storage/**/*',
+          '**/.docker/**',
           '**/*.json',
           '**/*.yml',
           '**/*.yaml',
           '**/*.img',
           '**/*.dmg',
-          '**/macboat.json',
-          '**/compose.yml'
+          '**/*.qcow2',
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/.git/**'
         ]
       }
     }
