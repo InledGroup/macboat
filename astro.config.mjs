@@ -12,5 +12,12 @@ export default defineConfig({
   integrations: [preact()],
   server: {
     port: 3000
+  },
+  vite: {
+    server: {
+      watch: {
+        ignored: ['**/storage/**', '**/settings.json']
+      }
+    }
   }
 });
