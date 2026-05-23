@@ -194,11 +194,13 @@ function getBasePath() {
   return app.isPackaged ? app.getPath('home') : process.cwd();
 }
 
+let currentComposePath: string | null = null;
+
 async function applyConfig() {
   try {
     const basePath = getBasePath();
-    const composePath = await generateCompose.execute(currentConfig, basePath);
-    await dockerAdapter.start(composePath);
+    currentComposePath = await generateCompose.execute(currentConfig, basePath);
+    await dockerAdapter.start(currentComposePath);
     mainWindow?.webContents.send('status-update', { message: 'Configuración aplicada y contenedor reiniciado' });
   } catch (error: any) {
     console.error('Error applying config:', error);
@@ -267,16 +269,16 @@ ipcMain.handle('start-macos', async (event, config: Partial<MacOSConfig>) => {
   try {
     currentConfig = { ...currentConfig, ...config };
     const basePath = getBasePath();
-    const composePath = await generateCompose.execute(currentConfig, basePath);
+    currentComposePath = await generateCompose.execute(currentConfig, basePath);
     
     // Start container - not awaiting to avoid blocking the transition
-    dockerAdapter.start(composePath).catch(err => {
+    dockerAdapter.start(currentComposePath).catch(err => {
       console.error('Error starting container in background:', err);
       mainWindow?.webContents.send('status-update', { message: 'Error al iniciar Docker: ' + err.message });
     });
     
     // Listen to logs
-    dockerAdapter.getLogs(composePath, (log) => {
+    dockerAdapter.getLogs(currentComposePath, (log) => {
       mainWindow?.webContents.send('docker-logs', log);
     });
 
@@ -289,10 +291,14 @@ ipcMain.handle('start-macos', async (event, config: Partial<MacOSConfig>) => {
 
 ipcMain.handle('stop-macos', async () => {
   try {
-    const basePath = getBasePath();
-    const composePath = path.join(basePath, 'compose.yml');
-    await dockerAdapter.stop(composePath);
-    return { ok: true };
+    if (currentComposePath) {
+      await dockerAdapter.stop(currentComposePath);
+      return { ok: true };
+    }
+    
+    // Fallback if no currentComposePath (e.g. app restarted)
+    // We could try to find any compose.yml in storage/
+    return { ok: false, message: 'No running VM found' };
   } catch (error: any) {
     console.error('Error stopping macOS:', error);
     throw error;
@@ -304,13 +310,13 @@ ipcMain.handle('check-existing-image', async () => {
   return await checkExistingImage.execute(basePath);
 });
 
-ipcMain.handle('delete-vm', async (event, version: string) => {
+ipcMain.handle('delete-vm', async (event, id: string) => {
   const result = await dialog.showMessageBox({
     type: 'warning',
     buttons: ['Cancelar', 'Eliminar permanentemente'],
     defaultId: 0,
     title: 'Confirmar eliminación',
-    message: `¿Estás seguro de que quieres eliminar macOS ${version}?`,
+    message: `¿Estás seguro de que quieres eliminar esta VM?`,
     detail: 'Esta acción borrará todos los datos instalados y no se puede deshacer.',
     cancelId: 0
   });
@@ -318,10 +324,10 @@ ipcMain.handle('delete-vm', async (event, version: string) => {
   if (result.response === 1) {
     try {
       const basePath = getBasePath();
-      const vmPath = path.join(basePath, 'storage', version);
+      const vmPath = path.join(basePath, 'storage', id);
       
       // Intentar detener el contenedor primero por si acaso
-      const composePath = path.join(basePath, 'compose.yml');
+      const composePath = path.join(vmPath, 'compose.yml');
       try {
         await dockerAdapter.stop(composePath);
       } catch {}
@@ -336,8 +342,47 @@ ipcMain.handle('delete-vm', async (event, version: string) => {
   return { ok: false };
 });
 
-ipcMain.handle('open-help', async (event, lang: 'es' | 'en') => {
-  await createHelpWindow(lang);
+// Función para obtener la ruta de configuración
+function getSettingsPath() {
+  return path.join(getBasePath(), 'settings.json');
+}
+
+async function getSettings() {
+  try {
+    const data = await fs.readFile(getSettingsPath(), 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return { hasAcceptedLegal: false };
+  }
+}
+
+async function saveSettings(settings: any) {
+  try {
+    await fs.writeFile(getSettingsPath(), JSON.stringify(settings, null, 2));
+  } catch (e) {
+    console.error('Error saving settings:', e);
+  }
+}
+
+ipcMain.handle('get-settings', async () => {
+  return await getSettings();
 });
 
-ipcMain.handle('get-config', () => currentConfig);
+ipcMain.handle('save-settings', async (event, settings: any) => {
+  await saveSettings(settings);
+});
+
+ipcMain.handle('rename-vm', async (event, { id, newName }) => {
+  try {
+    const basePath = getBasePath();
+    const configPath = path.join(basePath, 'storage', id, 'macboat.json');
+    const data = await fs.readFile(configPath, 'utf-8');
+    const config = JSON.parse(data);
+    config.name = newName;
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+    return { ok: true };
+  } catch (error: any) {
+    console.error('Error renaming VM:', error);
+    throw error;
+  }
+});

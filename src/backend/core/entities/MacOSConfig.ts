@@ -1,4 +1,5 @@
 export interface MacOSConfig {
+  name?: string;
   version: string;
   ramSize: string;
   cpuCores: number;

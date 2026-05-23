@@ -28,6 +28,12 @@ export default function Wizard() {
   const init = async () => {
     try {
       // @ts-ignore
+      const settings = await window.electron.getSettings();
+      if (settings.hasAcceptedLegal) {
+        hasAcceptedLegal.set(true);
+      }
+
+      // @ts-ignore
       const status = await window.electron.checkSystem();
       systemStatus.set(status);
 
@@ -76,12 +82,31 @@ export default function Wizard() {
     init();
   }, []);
 
-  const deleteVM = async (version: string) => {
+  const deleteVM = async (id: string) => {
     // @ts-ignore
-    const result = await window.electron.deleteVM(version);
+    const result = await window.electron.deleteVM(id);
     if (result && result.ok) {
       refreshVMs();
     }
+  };
+
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+
+  const renameVM = async (id: string, currentName: string) => {
+    setRenamingId(id);
+    setNewName(currentName);
+  };
+
+  const saveRename = async () => {
+    if (renamingId && newName) {
+      // @ts-ignore
+      const result = await window.electron.renameVM({ id: renamingId, newName });
+      if (result && result.ok) {
+        refreshVMs();
+      }
+    }
+    setRenamingId(null);
   };
 
   useEffect(() => {
@@ -94,26 +119,27 @@ export default function Wizard() {
         progress.set(parseInt(percentMatch[1]));
       }
 
-      if (newLog.includes('Starting macOS for Docker')) {
+      if (newLog.includes('Starting macOS for Docker') || newLog.includes('Reusing existing image') || newLog.includes('Downloading') || newLog.includes('Extracting')) {
         currentStage.set(t.bootStage1);
-        if (progress.get() < 5) progress.set(5);
+        if (progress.get() < 10) progress.set(10);
       }
-      if (newLog.includes('Building boot image')) {
+      if (newLog.includes('Building boot image') || newLog.includes('Generating Config') || newLog.includes('Creating disk') || newLog.includes('Allocating')) {
         currentStage.set(t.bootStage2);
-        if (progress.get() < 15) progress.set(15);
+        if (progress.get() < 25) progress.set(25);
       }
-      if (newLog.includes('Booting macOS using QEMU')) {
+      if (newLog.includes('Booting macOS using QEMU') || newLog.includes('SeaBIOS') || newLog.includes('iPXE') || newLog.includes('Starting QEMU')) {
         currentStage.set(t.bootStage3);
-        if (progress.get() < 30) progress.set(30);
+        if (progress.get() < 40) progress.set(40);
       }
-      if (newLog.includes('HANDOFF TO XNU')) {
+      if (newLog.includes('HANDOFF TO XNU') || newLog.includes('OpenCore')) {
         currentStage.set(t.bootStage4);
         if (progress.get() < 60) progress.set(60);
       }
-      if (newLog.includes('End of efiboot serial output')) {
+      if (newLog.includes('End of efiboot serial output') || newLog.includes('macOS Login') || newLog.includes('display-manager') || newLog.includes('VNC server running')) {
         currentStage.set(t.bootStage5);
         if (progress.get() < 90) progress.set(90);
         showViewer.set(true);
+        isFullScreen.set(true); // Default to full screen
       }
 
       if (logRef.current) {
@@ -139,17 +165,11 @@ export default function Wizard() {
   }, [$lang]);
 
   useEffect(() => {
-    // Refresh iframe if it fails to load initially
-    if ($showViewer) {
-      const timer = setInterval(() => {
-        const iframe = document.querySelector('.macos-iframe') as HTMLIFrameElement;
-        if (iframe && (!iframe.contentDocument || iframe.contentDocument.body.innerHTML === "")) {
-          setIframeKey(prev => prev + 1);
-        }
-      }, 5000);
-      return () => clearInterval(timer);
+    // Refresh VMs when showing dashboard
+    if ($step === 1) {
+      refreshVMs();
     }
-  }, [$showViewer]);
+  }, [$step]);
 
   const addFolder = async () => {
     // @ts-ignore
@@ -199,7 +219,8 @@ export default function Wizard() {
       isInstalling.set(false);
       showViewer.set(false);
       isFullScreen.set(false);
-      logs.set(logs.get() + '\n' + t.stoppedByUser + '\n');
+      step.set(1);
+      refreshVMs();
     } catch (error) {
       console.error('Error al detener:', error);
     }
@@ -266,12 +287,18 @@ export default function Wizard() {
           </div>
           <div class="actions" style={{ gap: '20px' }}>
             <button onClick={() => isLegalRejected.set(true)} class="button-secondary-pill">{t.cancel}</button>
-            <button onClick={() => hasAcceptedLegal.set(true)} class="button-primary">{t.accept}</button>
+            <button onClick={async () => { 
+              hasAcceptedLegal.set(true); 
+              // @ts-ignore
+              await window.electron.saveSettings({ hasAcceptedLegal: true });
+            }} class="button-primary">{t.accept}</button>
           </div>
         </section>
       </div>
     );
   }
+
+  const [isDockExpanded, setIsDockExpanded] = useState(true);
 
   return (
     <div class="wizard-container">
@@ -292,22 +319,50 @@ export default function Wizard() {
               <div class="vm-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px', marginBottom: '40px' }}>
                 {$vms.map(vm => (
                   <div class="vm-card tile" style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f5f5f7', border: '1px solid var(--color-hairline)', position: 'relative' }}>
-                    <button 
-                      onClick={() => deleteVM(vm.version)}
-                      style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, transition: 'opacity 0.2s' }}
-                      onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
-                      onMouseOut={(e) => (e.currentTarget.style.opacity = '0.4')}
-                      title="Eliminar VM"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff3b30">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                      </svg>
-                    </button>
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '5px' }}>
+                      <button 
+                        onClick={() => renameVM(vm.id, vm.name)}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, transition: 'opacity 0.2s' }}
+                        onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseOut={(e) => (e.currentTarget.style.opacity = '0.4')}
+                        title="Renombrar VM"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)">
+                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                      </button>
+                      <button 
+                        onClick={() => deleteVM(vm.id)}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, transition: 'opacity 0.2s' }}
+                        onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseOut={(e) => (e.currentTarget.style.opacity = '0.4')}
+                        title="Eliminar VM"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff3b30">
+                          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                      </button>
+                    </div>
                     <div style={{ fontSize: '48px', marginBottom: '10px' }}></div>
-                    <h3 class="headline" style={{ marginBottom: '15px' }}>{vm.name}</h3>
+                    {renamingId === vm.id ? (
+                      <div style={{ padding: '0 10px' }}>
+                        <input 
+                          type="text" 
+                          value={newName} 
+                          onInput={(e) => setNewName((e.target as HTMLInputElement).value)}
+                          onBlur={saveRename}
+                          onKeyDown={(e) => e.key === 'Enter' && saveRename()}
+                          autoFocus
+                          style={{ width: '100%', padding: '5px', borderRadius: '5px', border: '1px solid var(--color-primary)', textAlign: 'center' }}
+                        />
+                      </div>
+                    ) : (
+                      <h3 class="headline" style={{ marginBottom: '5px' }}>{vm.name}</h3>
+                    )}
+                    <p class="caption" style={{ marginBottom: '15px', opacity: 0.6 }}>macOS {vm.version}</p>
                     <div class="actions" style={{ justifyContent: 'center' }}>
                       <button 
-                        onClick={() => startInstall({ ...$config, version: vm.version })} 
+                        onClick={() => startInstall(vm.config || { ...$config, version: vm.version })} 
                         class="button-primary" 
                         style={{ borderRadius: '50%', width: '50px', height: '50px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       >
@@ -414,6 +469,19 @@ export default function Wizard() {
           <div class="resource-grid">
             <div class="resource-item" style={{ gridColumn: '1 / -1', marginBottom: '20px', padding: '20px', backgroundColor: 'var(--color-canvas-parchment)', borderRadius: '12px' }}>
               <div class="resource-label" style={{ marginBottom: '15px' }}>
+                <span style={{ fontSize: '20px', fontWeight: '600' }}>{t.vmName}</span>
+              </div>
+              <input 
+                type="text" 
+                placeholder={t.vmNamePlaceholder} 
+                value={$config.name || ''}
+                onInput={(e) => config.set({ ...$config, name: (e.target as HTMLInputElement).value })}
+                style={{ width: '100%', padding: '15px', borderRadius: '10px', border: '1px solid var(--color-hairline)', fontSize: '16px' }}
+              />
+            </div>
+
+            <div class="resource-item" style={{ gridColumn: '1 / -1', marginBottom: '20px', padding: '20px', backgroundColor: 'var(--color-canvas-parchment)', borderRadius: '12px' }}>
+              <div class="resource-label" style={{ marginBottom: '15px' }}>
                 <span style={{ fontSize: '20px', fontWeight: '600' }}>{t.chooseVersion}</span>
               </div>
               <div class="version-select-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
@@ -502,66 +570,77 @@ export default function Wizard() {
       )}
 
       {$step === 5 && (
-        <section class={`tile ${$showViewer ? 'product-tile-light' : 'product-tile-dark'} main-step`} style={{ position: 'relative', padding: $isFullScreen ? '0' : '' }}>
-          {$isInstalling && !$showViewer && <Spinner />}
+        <section class="tile product-tile-dark main-step" style={{ position: 'relative', padding: '0', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+          
+          {/* Main VNC Viewer - Always present but maybe behind logs initially */}
+          <div class={`viewer-container full-screen`}>
+            <iframe 
+              key={iframeKey} 
+              src="http://localhost:8006/?autoconnect=1&resize=scale" 
+              class="macos-iframe"
+              style={{ background: '#000' }}
+            ></iframe>
+          </div>
 
-          {!$isFullScreen && (
-            <div class="install-header">
-              <h1 class={`display-lg ${$showViewer ? 'text-ink' : 'text-white'}`}>{$stage || t.preparing}</h1>
-              {!$showViewer && <p class="lead-airy text-muted">{t.preparingDesc}</p>}
-            </div>
-          )}
-
-          {!$showViewer ? (
-            <>
-              <div class="install-status">
-                <div class="progress-container">
+          {/* Overlay Logs/Status - Only visible until VNC is confirmed or if debug is needed */}
+          {!$showViewer && (
+            <div class="macos-overlay">
+              <div class="install-header" style={{ textAlign: 'center', marginBottom: '30px', zIndex: 2100 }}>
+                <h1 class="display-lg text-white">{$stage || t.preparing}</h1>
+                <p class="caption text-white" style={{ opacity: 0.6, marginBottom: '10px' }}>{$progress}% {t.completed}</p>
+                <div class="progress-container" style={{ width: '300px', height: '4px', margin: '0 auto' }}>
                   <div class="progress-bar" style={{ width: `${$progress}%` }}></div>
                 </div>
-                <div class="status-meta">
-                  <span class="caption text-white">{$progress}% {t.completed}</span>
-                </div>
               </div>
-
-              <div class="log-container">
-                <pre ref={logRef} class="log-viewer">{$logs || '...'}</pre>
+              
+              <div class="log-container" style={{ width: '80%', height: '50vh', background: 'rgba(0,0,0,0.4)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <pre ref={logRef} class="log-viewer" style={{ color: '#fff', fontSize: '12px' }}>{$logs || t.booting}</pre>
               </div>
-            </>
-          ) : (
-            <div class={`viewer-container ${$isFullScreen ? 'full-screen' : ''}`}>
-              {!$isFullScreen && (
-                <div style={{ backgroundColor: 'rgba(0,102,204,0.1)', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '4px solid var(--color-primary)' }}>
-                  <p class="caption" style={{ color: 'var(--color-primary)', margin: 0, fontWeight: 600 }}>{t.diskUtilityNote}</p>
-                </div>
-              )}
-              <iframe key={iframeKey} src="http://localhost:8006/?autoconnect=1&resize=scale" class="macos-iframe"></iframe>
-              <button onClick={toggleFullScreen} class="fullscreen-toggle">
-                {$isFullScreen ? t.exitFullScreen : t.fullScreen}
-              </button>
             </div>
           )}
-          
-          {!$isFullScreen && (
-            <div class="viewer-actions">
-              { $showViewer && (
-                <a href="http://localhost:8006" target="_blank" class="button-primary" style={{textDecoration: 'none'}}>
-                  {t.openBrowser}
+
+          {/* macOS-style Dock - The ONLY controls */}
+          <div class={`macos-dock-container ${isDockExpanded ? 'expanded' : 'collapsed'}`}>
+            <div class="dock-handle" onClick={() => setIsDockExpanded(!isDockExpanded)}>
+              <div class="handle-bar"></div>
+            </div>
+            {isDockExpanded && (
+              <div class="macos-dock">
+                <button onClick={stopInstall} class="dock-item" title={t.pause}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="#ff3b30">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                  </svg>
+                </button>
+                <button onClick={exitInstall} class="dock-item" title={t.exit}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="#333">
+                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                  </svg>
+                </button>
+                <a href="http://localhost:8006" target="_blank" class="dock-item" title={t.openBrowser}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="var(--color-primary)">
+                    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                  </svg>
                 </a>
-              )}
-              <button onClick={stopInstall} class="button-secondary-pill" style={{borderColor: '#ff3b30', color: '#ff3b30'}}>
-                {t.pause}
-              </button>
-              <button onClick={exitInstall} class="button-secondary-pill">
-                {t.exit}
-              </button>
-            </div>
-          )}
-
-          {!$showViewer && !$isFullScreen && (
-            <div class="install-footer">
-              <p class="fine-print text-muted">{t.stableConn}</p>
-            </div>
-          )}
+                <div class="dock-divider"></div>
+                <button onClick={() => showViewer.set(!$showViewer)} class="dock-item" title="Toggle Logs">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                  </svg>
+                </button>
+                <button onClick={toggleFullScreen} class="dock-item" title={$isFullScreen ? t.exitFullScreen : t.fullScreen}>
+                  { $isFullScreen ? (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
+                      <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+                    </svg>
+                  ) : (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
+                      <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </section>
       )}
     </div>

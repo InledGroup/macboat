@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electron', {
   openHelp: (lang: 'es' | 'en') => ipcRenderer.invoke('open-help', lang),
   setDockerPath: (path: string) => ipcRenderer.invoke('set-docker-path', path),
   getConfig: () => ipcRenderer.invoke('get-config'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
+  renameVM: (data: any) => ipcRenderer.invoke('rename-vm', data),
   onStatusUpdate: (callback: any) => {
     const subscription = (_event: any, value: any) => callback(value);
     ipcRenderer.on('status-update', subscription);

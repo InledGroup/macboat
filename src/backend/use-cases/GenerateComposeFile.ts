@@ -6,8 +6,6 @@ export class GenerateComposeFile {
   constructor(private dockerRepository: DockerRepository) {}
 
   async execute(config: MacOSConfig, projectPath: string): Promise<string> {
-    const outputPath = path.join(projectPath, 'compose.yml');
-    await this.dockerRepository.generateComposeFile(config, outputPath);
-    return outputPath;
+    return await this.dockerRepository.generateComposeFile(config, projectPath);
   }
 }

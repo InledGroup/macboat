@@ -12,7 +12,7 @@ const execAsync = promisify(exec);
 export class DockerComposeAdapter implements DockerRepository {
   constructor(private systemRepository?: SystemRepository) {}
 
-  async generateComposeFile(config: MacOSConfig, outputPath: string): Promise<void> {
+  async generateComposeFile(config: MacOSConfig, projectPath: string): Promise<string> {
     const usbArgs = config.usbDevices
       .map(dev => `-device usb-host,vendorid=${dev.vendorId},productid=${dev.productId}`)
       .join(' ');
@@ -29,18 +29,30 @@ export class DockerComposeAdapter implements DockerRepository {
       devices.push('/dev/net/tun');
     } catch {}
 
+    // Use a unique ID based on name or version
+    const vmId = config.name ? config.name.toLowerCase().replace(/[^a-z0-9]/g, '-') : config.version;
+    const vmStoragePath = path.join(projectPath, 'storage', vmId);
+    const outputPath = path.join(vmStoragePath, 'compose.yml');
+
     // Ensure storage directory exists
-    const storagePath = path.join(path.dirname(outputPath), 'storage');
     try {
-      await fs.mkdir(storagePath, { recursive: true });
+      await fs.mkdir(vmStoragePath, { recursive: true });
     } catch (e) {
       console.error('Error creating storage directory:', e);
+    }
+
+    // Save metadata
+    try {
+      await fs.writeFile(path.join(vmStoragePath, 'macboat.json'), JSON.stringify(config, null, 2));
+    } catch (e) {
+      console.error('Error saving metadata:', e);
     }
 
     const compose: any = {
       services: {
         macos: {
           image: 'dockurr/macos',
+          container_name: `macboat-${vmId}`,
           privileged: true,
           environment: {
             VERSION: config.version,
@@ -59,7 +71,7 @@ export class DockerComposeAdapter implements DockerRepository {
             '5900:5900/udp'
           ],
           volumes: [
-            './storage:/storage'
+            '.:/storage'
           ],
           restart: 'always',
           stop_grace_period: '2m'
@@ -84,6 +96,7 @@ export class DockerComposeAdapter implements DockerRepository {
 
     const doc = new Document(compose);
     await fs.writeFile(outputPath, doc.toString());
+    return outputPath;
   }
 
   private async getDockerPath(): Promise<string> {
