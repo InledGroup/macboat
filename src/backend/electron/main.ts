@@ -344,7 +344,7 @@ ipcMain.handle('delete-vm', async (event, id: string) => {
 
 // Función para obtener la ruta de configuración
 function getSettingsPath() {
-  return path.join(getBasePath(), 'settings.json');
+  return path.join(getBasePath(), 'storage', 'settings.json');
 }
 
 async function getSettings() {

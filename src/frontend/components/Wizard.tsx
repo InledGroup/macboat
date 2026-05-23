@@ -174,17 +174,6 @@ export default function Wizard() {
   };
 
   useEffect(() => {
-    // Retry iframe every 3s until we confirm it's showing (based on logs)
-    let timer: any;
-    if ($isInstalling && !$showViewer) {
-      timer = setInterval(() => {
-        setIframeKey(prev => prev + 1);
-      }, 3000);
-    }
-    return () => timer && clearInterval(timer);
-  }, [$isInstalling, $showViewer]);
-
-  useEffect(() => {
     // Refresh VMs when showing dashboard
     if ($step === 1) {
       refreshVMs();

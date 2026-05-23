@@ -454,13 +454,13 @@ const { title } = Astro.props;
 		flex-direction: row-reverse;
 	}
 
-	.macos-dock-container.bottom.collapsed { bottom: -70px; }
-	.macos-dock-container.left.collapsed { left: -70px; }
-	.macos-dock-container.right.collapsed { right: -70px; }
+	.macos-dock-container.bottom.collapsed { bottom: -75px; }
+	.macos-dock-container.left.collapsed { left: -75px; }
+	.macos-dock-container.right.collapsed { right: -75px; }
 
-	.macos-dock-container.bottom.collapsed:hover { bottom: -60px; }
-	.macos-dock-container.left.collapsed:hover { left: -60px; }
-	.macos-dock-container.right.collapsed:hover { right: -60px; }
+	.macos-dock-container.bottom.collapsed:hover { bottom: -65px; }
+	.macos-dock-container.left.collapsed:hover { left: -65px; }
+	.macos-dock-container.right.collapsed:hover { right: -65px; }
 
 	.dock-handle {
 		background: rgba(255, 255, 255, 0.25);
@@ -471,39 +471,39 @@ const { title } = Astro.props;
 		justify-content: center;
 		cursor: pointer;
 		border: 1px solid rgba(255, 255, 255, 0.4);
-		transition: background 0.2s, transform 0.2s;
+		transition: all 0.2s;
 		position: relative;
 	}
 
+	.macos-dock-container.collapsed .dock-handle {
+		background: var(--color-primary);
+		opacity: 1;
+		border-color: rgba(255, 255, 255, 0.6);
+		box-shadow: 0 0 20px var(--color-primary);
+	}
+
 	.bottom .dock-handle {
-		width: 80px;
-		height: 28px;
-		border-radius: 14px 14px 0 0;
+		width: 100px;
+		height: 32px;
+		border-radius: 16px 16px 0 0;
 		border-bottom: none;
 		margin-bottom: -1px;
 	}
 
 	.left .dock-handle {
-		width: 28px;
-		height: 80px;
-		border-radius: 0 14px 14px 0;
+		width: 32px;
+		height: 100px;
+		border-radius: 0 16px 16px 0;
 		border-left: none;
 		margin-right: -1px;
 	}
 
 	.right .dock-handle {
-		width: 28px;
-		height: 80px;
-		border-radius: 14px 0 0 14px;
+		width: 32px;
+		height: 100px;
+		border-radius: 16px 0 0 16px;
 		border-right: none;
 		margin-left: -1px;
-	}
-
-	.macos-dock-container.collapsed .dock-handle {
-		background: var(--color-primary);
-		opacity: 0.8;
-		border-color: rgba(255, 255, 255, 0.5);
-		box-shadow: 0 0 15px var(--color-primary);
 	}
 
 	.expand-icon {
@@ -511,13 +511,20 @@ const { title } = Astro.props;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		animation: pulse 1.5s infinite;
+		animation: pulse 1.5s infinite ease-in-out;
 	}
 
 	@keyframes pulse {
-		0% { transform: scale(0.8); opacity: 0.5; }
+		0% { transform: scale(0.9); opacity: 0.6; }
 		50% { transform: scale(1.1); opacity: 1; }
-		100% { transform: scale(0.8); opacity: 0.5; }
+		100% { transform: scale(0.9); opacity: 0.6; }
+	}
+
+	.handle-bar {
+		width: 20px;
+		height: 3px;
+		background: rgba(255, 255, 255, 0.5);
+		border-radius: 2px;
 	}
 
 	.macos-dock {
