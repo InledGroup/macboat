@@ -16,7 +16,14 @@ export default defineConfig({
   vite: {
     server: {
       watch: {
-        ignored: ['**/storage/**', '**/settings.json']
+        ignored: [
+          '**/storage/**',
+          '**/settings.json',
+          '**/*.img',
+          '**/*.dmg',
+          '**/compose.yml',
+          '**/macboat.json'
+        ]
       }
     }
   }

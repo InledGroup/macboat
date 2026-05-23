@@ -164,6 +164,15 @@ export default function Wizard() {
     };
   }, [$lang]);
 
+  const [isDockExpanded, setIsDockExpanded] = useState(true);
+  const [dockPosition, setDockPosition] = useState<'bottom' | 'left' | 'right'>('bottom');
+
+  const cycleDockPosition = () => {
+    if (dockPosition === 'bottom') setDockPosition('left');
+    else if (dockPosition === 'left') setDockPosition('right');
+    else setDockPosition('bottom');
+  };
+
   useEffect(() => {
     // Refresh VMs when showing dashboard
     if ($step === 1) {
@@ -299,9 +308,23 @@ export default function Wizard() {
   }
 
   const [isDockExpanded, setIsDockExpanded] = useState(true);
+  const [dockPosition, setDockPosition] = useState<'bottom' | 'left' | 'right'>('bottom');
 
-  return (
-    <div class="wizard-container">
+  const cycleDockPosition = () => {
+    if (dockPosition === 'bottom') setDockPosition('left');
+    else if (dockPosition === 'left') setDockPosition('right');
+    else setDockPosition('bottom');
+  };
+
+  useEffect(() => {
+    // Retry iframe if it's not loading correctly (once per 3s until showViewer is true)
+    if ($isInstalling && !$showViewer) {
+      const timer = setInterval(() => {
+        setIframeKey(prev => prev + 1);
+      }, 3000);
+      return () => clearInterval(timer);
+    }
+  }, [$isInstalling, $showViewer]);
       {!$isFullScreen && (
         <div class="language-selector">
           <button onClick={() => language.set('es')} class={$lang === 'es' ? 'active' : ''}>ES</button>
@@ -600,9 +623,16 @@ export default function Wizard() {
           )}
 
           {/* macOS-style Dock - The ONLY controls */}
-          <div class={`macos-dock-container ${isDockExpanded ? 'expanded' : 'collapsed'}`}>
+          <div class={`macos-dock-container ${dockPosition} ${isDockExpanded ? 'expanded' : 'collapsed'}`}>
             <div class="dock-handle" onClick={() => setIsDockExpanded(!isDockExpanded)}>
               <div class="handle-bar"></div>
+              {!isDockExpanded && (
+                <div class="expand-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d={dockPosition === 'bottom' ? "M7 14l5-5 5 5z" : dockPosition === 'left' ? "M10 17l5-5-5-5z" : "M14 7l-5 5 5 5z"}/>
+                  </svg>
+                </div>
+              )}
             </div>
             {isDockExpanded && (
               <div class="macos-dock">
@@ -622,6 +652,11 @@ export default function Wizard() {
                   </svg>
                 </a>
                 <div class="dock-divider"></div>
+                <button onClick={cycleDockPosition} class="dock-item" title="Cambiar posición del Dock">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
+                    <path d="M7 19h10V5H7v14zm2-12h6v10H9V7z M3 3h18v18H3V3z"/>
+                  </svg>
+                </button>
                 <button onClick={() => showViewer.set(!$showViewer)} class="dock-item" title="Toggle Logs">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
                     <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>

@@ -427,50 +427,90 @@ const { title } = Astro.props;
 	/* macOS-style Dock */
 	.macos-dock-container {
 		position: fixed;
-		bottom: 20px;
-		left: 50%;
-		transform: translateX(-50%);
 		z-index: 4000;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 	}
 
-	.macos-dock-container.collapsed {
-		bottom: -70px; /* Hide dock but keep handle visible */
+	.macos-dock-container.bottom {
+		bottom: 20px;
+		left: 50%;
+		transform: translateX(-50%);
+		flex-direction: column;
 	}
 
-	.macos-dock-container.collapsed:hover {
-		bottom: -60px; /* Slight lift on hover to hint it's there */
+	.macos-dock-container.left {
+		left: 20px;
+		top: 50%;
+		transform: translateY(-50%);
+		flex-direction: row;
 	}
+
+	.macos-dock-container.right {
+		right: 20px;
+		top: 50%;
+		transform: translateY(-50%);
+		flex-direction: row-reverse;
+	}
+
+	.macos-dock-container.bottom.collapsed { bottom: -70px; }
+	.macos-dock-container.left.collapsed { left: -70px; }
+	.macos-dock-container.right.collapsed { right: -70px; }
+
+	.macos-dock-container.bottom.collapsed:hover { bottom: -60px; }
+	.macos-dock-container.left.collapsed:hover { left: -60px; }
+	.macos-dock-container.right.collapsed:hover { right: -60px; }
 
 	.dock-handle {
-		width: 80px;
-		height: 28px;
 		background: rgba(255, 255, 255, 0.25);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
-		border-radius: 14px 14px 0 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
 		border: 1px solid rgba(255, 255, 255, 0.4);
+		transition: background 0.2s, transform 0.2s;
+		position: relative;
+	}
+
+	.bottom .dock-handle {
+		width: 80px;
+		height: 28px;
+		border-radius: 14px 14px 0 0;
 		border-bottom: none;
 		margin-bottom: -1px;
-		transition: background 0.2s;
 	}
 
-	.dock-handle:hover {
-		background: rgba(255, 255, 255, 0.4);
+	.left .dock-handle {
+		width: 28px;
+		height: 80px;
+		border-radius: 0 14px 14px 0;
+		border-left: none;
+		margin-right: -1px;
 	}
 
-	.handle-bar {
-		width: 20px;
-		height: 3px;
-		background: rgba(255, 255, 255, 0.5);
-		border-radius: 2px;
+	.right .dock-handle {
+		width: 28px;
+		height: 80px;
+		border-radius: 14px 0 0 14px;
+		border-right: none;
+		margin-left: -1px;
+	}
+
+	.expand-icon {
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		animation: pulse 2s infinite;
+	}
+
+	@keyframes pulse {
+		0% { opacity: 0.4; }
+		50% { opacity: 1; }
+		100% { opacity: 0.4; }
 	}
 
 	.macos-dock {
@@ -480,11 +520,13 @@ const { title } = Astro.props;
 		padding: 10px;
 		border-radius: 20px;
 		display: flex;
-		gap: 15px;
 		align-items: center;
 		border: 1px solid rgba(255, 255, 255, 0.3);
 		box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 	}
+
+	.bottom .macos-dock { flex-direction: row; gap: 15px; }
+	.left .macos-dock, .right .macos-dock { flex-direction: column; gap: 15px; }
 
 	.dock-item {
 		width: 48px;
