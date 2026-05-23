@@ -320,7 +320,8 @@ export default function Wizard() {
 
   return (
     <div class="wizard-container">
-
+      {!$isFullScreen && (
+        <div class="language-selector">
           <button onClick={() => language.set('es')} class={$lang === 'es' ? 'active' : ''}>ES</button>
           <button onClick={() => language.set('en')} class={$lang === 'en' ? 'active' : ''}>EN</button>
         </div>
