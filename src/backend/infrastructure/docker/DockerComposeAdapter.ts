@@ -41,7 +41,6 @@ export class DockerComposeAdapter implements DockerRepository {
       services: {
         macos: {
           image: 'dockurr/macos',
-          container_name: 'macos',
           privileged: true,
           environment: {
             VERSION: config.version,
@@ -133,14 +132,14 @@ export class DockerComposeAdapter implements DockerRepository {
       
       // Intentar detener cualquier instancia previa que pueda estar bloqueando puertos
       console.log('DockerComposeAdapter: Bajando instancias previas...');
-      await execAsync(`${composeCmd} -f ${composePath} down --remove-orphans`);
+      await execAsync(`${composeCmd} -p macboat -f ${composePath} down --remove-orphans`);
     } catch (e) {
       console.log('DockerComposeAdapter: Aviso - No se pudo bajar el contenedor previo o matar proceso:', e);
     }
     
     try {
       console.log('DockerComposeAdapter: Ejecutando up -d...');
-      await execAsync(`${composeCmd} -f ${composePath} up -d`);
+      await execAsync(`${composeCmd} -p macboat -f ${composePath} up -d`);
       console.log('DockerComposeAdapter: Comando up ejecutado con éxito');
     } catch (e: any) {
       console.error('DockerComposeAdapter: Error fatal al ejecutar docker compose up:', e);
@@ -150,14 +149,14 @@ export class DockerComposeAdapter implements DockerRepository {
 
   async stop(composePath: string): Promise<void> {
     const composeCmd = await this.getComposeCommand();
-    await execAsync(`${composeCmd} -f ${composePath} stop`);
+    await execAsync(`${composeCmd} -p macboat -f ${composePath} stop`);
   }
 
   async getLogs(composePath: string, callback: (log: string) => void): Promise<void> {
     const composeCmd = await this.getComposeCommand();
     const args = composeCmd === 'docker compose' 
-      ? ['compose', '-f', composePath, 'logs', '-f']
-      : ['-f', composePath, 'logs', '-f'];
+      ? ['compose', '-p', 'macboat', '-f', composePath, 'logs', '-f']
+      : ['-p', 'macboat', '-f', composePath, 'logs', '-f'];
     
     const cmd = composeCmd === 'docker compose' ? 'docker' : 'docker-compose';
     const child = spawn(cmd, args);

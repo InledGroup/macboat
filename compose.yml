@@ -1,7 +1,6 @@
 services:
   macos:
     image: dockurr/macos
-    container_name: macos
     privileged: true
     environment:
       VERSION: "11"
