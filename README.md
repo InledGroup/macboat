@@ -14,7 +14,11 @@
 
 </div></h1>
 
-Use MacOS on Linux and Windows.
+Use MacOS on Linux and Windows. No commands, full GUI setup.  
+Choose your MacOS version and start the installation process with a simple GUI.
+
+>[!WARNING]  
+> Due to MacOS EULA, you are responsible and obligated to use MacOS only on official hardware.  
 
 ## Features ✨
 
@@ -25,7 +29,8 @@ Use MacOS on Linux and Windows.
  - Web-based viewer
  - Automatic download
 
-
+ ## Work in progress.  
+ We are working on a full app integration like Winboat. For now, only runs MacOS with full desktop, no headless mode.
 
 ## FAQ 💬
 

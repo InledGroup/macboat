@@ -278,6 +278,10 @@ ipcMain.handle('set-docker-path', async (event, path: string) => {
   return await checkSystem.execute();
 });
 
+ipcMain.handle('open-help', async (event, lang: 'es' | 'en') => {
+  await createHelpWindow(lang);
+});
+
 ipcMain.handle('check-system', async () => {
   try {
     console.log('Backend: Ejecutando check-system...');

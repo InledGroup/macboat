@@ -216,10 +216,6 @@ export default function Wizard() {
   };
 
   const startInstall = async (existingConfig?: any) => {
-    // Detectar si es una VM nueva o incompleta para mostrar ayuda
-    const targetVM = $vms.find(vm => vm.version === (existingConfig?.version || $config.version));
-    const isNew = !targetVM || !targetVM.hasData;
-
     step.set(5); 
     isInstalling.set(true);
     showViewer.set(false);
@@ -233,8 +229,9 @@ export default function Wizard() {
       // @ts-ignore
       await window.electron.startMacOS(runConfig);
 
-      // Si es una instalación nueva, abrir ayuda automáticamente
-      if (isNew) {
+      // Si venimos del wizard (paso 4) y no de un dashboard de VMs existentes,
+      // abrimos la ayuda siempre para guiar al usuario.
+      if (!existingConfig) {
         // @ts-ignore
         window.electron.openHelp($lang);
       }
