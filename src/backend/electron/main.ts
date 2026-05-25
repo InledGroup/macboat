@@ -189,9 +189,9 @@ monitorUSB.onDeviceChange(async (device, type) => {
   }
 });
 
-// Función para obtener la ruta base de datos (Home del usuario en prod, cwd en dev)
+// Función para obtener la ruta base de datos (Unificada en ~/storage)
 function getBasePath() {
-  return app.isPackaged ? app.getPath('home') : process.cwd();
+  return path.join(app.getPath('home'), 'storage');
 }
 
 let currentComposePath: string | null = null;
@@ -226,6 +226,50 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Graceful shutdown: Stop containers when app quits
+let isQuitting = false;
+
+async function shutdown() {
+  if (isQuitting) return;
+  isQuitting = true;
+  console.log('Main: Iniciando apagado gradual...');
+  
+  if (currentComposePath) {
+    try {
+      console.log('Main: Deteniendo contenedores macOS...');
+      // Usamos execSync o un comando que bloquee brevemente para asegurar que se envía la señal
+      const { execSync } = await import('child_process');
+      const dockerPath = await systemAdapter.getDockerExecutable();
+      const composeCmd = `${dockerPath} compose`; // Simplificado para el shutdown
+      
+      // Intentamos parar de forma rápida
+      execSync(`${composeCmd} -p macboat -f ${currentComposePath} stop`, { stdio: 'inherit' });
+      console.log('Main: Contenedores detenidos correctamente.');
+    } catch (e) {
+      console.error('Main: Error al detener contenedores durante el cierre:', e);
+    }
+  }
+}
+
+app.on('before-quit', async (event) => {
+  if (currentComposePath && !isQuitting) {
+    event.preventDefault();
+    await shutdown();
+    app.quit();
+  }
+});
+
+// Manejar Ctrl+C (SIGINT) y SIGTERM
+process.on('SIGINT', async () => {
+  await shutdown();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await shutdown();
+  process.exit(0);
 });
 
 // IPC Handlers
@@ -324,8 +368,8 @@ ipcMain.handle('delete-vm', async (event, id: string) => {
   if (result.response === 1) {
     try {
       const basePath = getBasePath();
-      const vmPath = path.join(basePath, 'storage', id);
-      
+      const vmPath = path.join(basePath, id);
+
       // Intentar detener el contenedor primero por si acaso
       const composePath = path.join(vmPath, 'compose.yml');
       try {
@@ -344,7 +388,7 @@ ipcMain.handle('delete-vm', async (event, id: string) => {
 
 // Función para obtener la ruta de configuración
 function getSettingsPath() {
-  return path.join(getBasePath(), 'storage', 'settings.json');
+  return path.join(getBasePath(), 'settings.json');
 }
 
 async function getSettings() {
@@ -375,7 +419,7 @@ ipcMain.handle('save-settings', async (event, settings: any) => {
 ipcMain.handle('rename-vm', async (event, { id, newName }) => {
   try {
     const basePath = getBasePath();
-    const configPath = path.join(basePath, 'storage', id, 'macboat.json');
+    const configPath = path.join(basePath, id, 'macboat.json');
     const data = await fs.readFile(configPath, 'utf-8');
     const config = JSON.parse(data);
     config.name = newName;
@@ -386,3 +430,4 @@ ipcMain.handle('rename-vm', async (event, { id, newName }) => {
     throw error;
   }
 });
+

@@ -31,7 +31,7 @@ export class DockerComposeAdapter implements DockerRepository {
 
     // Use a unique ID based on name or version
     const vmId = config.name ? config.name.toLowerCase().replace(/[^a-z0-9]/g, '-') : config.version;
-    const vmStoragePath = path.join(projectPath, 'storage', vmId);
+    const vmStoragePath = path.join(projectPath, vmId);
     const outputPath = path.join(vmStoragePath, 'compose.yml');
 
     // Ensure storage directory exists

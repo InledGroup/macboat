@@ -164,6 +164,29 @@ export default function Wizard() {
     };
   }, [$lang]);
 
+  // Auto-retry VNC if it fails to load or shows empty
+  useEffect(() => {
+    if ($showViewer) {
+      const interval = setInterval(() => {
+        const iframe = document.querySelector('.macos-iframe') as HTMLIFrameElement;
+        if (iframe) {
+          try {
+            // We can't access contentDocument directly if cross-origin, 
+            // but in Electron with localhost it might be allowed depending on config.
+            // If it fails, we just don't retry based on content, but keep the timer 
+            // for manual or other types of detection if needed.
+            if (iframe.contentDocument && (!iframe.contentDocument.body || iframe.contentDocument.body.innerHTML === '')) {
+              setIframeKey(k => k + 1);
+            }
+          } catch (e) {
+            // Cross-origin or other error, ignore
+          }
+        }
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [$showViewer]);
+
   const [isDockExpanded, setIsDockExpanded] = useState(true);
   const [dockPosition, setDockPosition] = useState<'bottom' | 'left' | 'right'>('bottom');
 
@@ -579,14 +602,16 @@ export default function Wizard() {
       {$step === 5 && (
         <section class="tile product-tile-dark main-step" style={{ position: 'relative', padding: '0', width: '100vw', height: '100vh', overflow: 'hidden' }}>
           
-          {/* Main VNC Viewer - Always present but maybe behind logs initially */}
+          {/* Main VNC Viewer - Only present but maybe behind logs initially */}
           <div class={`viewer-container full-screen`}>
-            <iframe 
-              key={iframeKey} 
-              src="http://localhost:8006/?autoconnect=1&resize=scale" 
-              class="macos-iframe"
-              style={{ background: '#000' }}
-            ></iframe>
+            {$showViewer && (
+              <iframe 
+                key={iframeKey} 
+                src="http://localhost:8006/?autoconnect=1&resize=scale" 
+                class="macos-iframe"
+                style={{ background: '#000' }}
+              ></iframe>
+            )}
           </div>
 
           {/* Overlay Logs/Status - Only visible until VNC is confirmed or if debug is needed */}
@@ -608,18 +633,21 @@ export default function Wizard() {
 
           {/* macOS-style Dock - The ONLY controls */}
           <div class={`macos-dock-container ${dockPosition} ${isDockExpanded ? 'expanded' : 'collapsed'}`}>
-            <div class="dock-handle" onClick={() => setIsDockExpanded(!isDockExpanded)}>
-              <div class="handle-bar"></div>
-              {!isDockExpanded && (
+            {!isDockExpanded && (
+              <button class="dock-trigger-button" onClick={() => setIsDockExpanded(true)} title="Mostrar controles">
                 <div class="expand-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <path d={dockPosition === 'bottom' ? "M7 14l5-5 5 5z" : dockPosition === 'left' ? "M10 17l5-5-5-5z" : "M14 7l-5 5 5 5z"}/>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M7 14l5-5 5 5z"/>
                   </svg>
                 </div>
-              )}
-            </div>
+              </button>
+            )}
             {isDockExpanded && (
-              <div class="macos-dock">
+              <div class="macos-dock-wrapper">
+                <div class="dock-collapse-handle" onClick={() => setIsDockExpanded(false)}>
+                  <div class="handle-bar"></div>
+                </div>
+                <div class="macos-dock">
                 <button onClick={stopInstall} class="dock-item" title={t.pause}>
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="#ff3b30">
                     <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
@@ -635,6 +663,11 @@ export default function Wizard() {
                     <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
                   </svg>
                 </a>
+                <button onClick={() => setIframeKey(k => k + 1)} class="dock-item" title="Recargar VNC">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
+                    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                  </svg>
+                </button>
                 <div class="dock-divider"></div>
                 <button onClick={cycleDockPosition} class="dock-item" title="Cambiar posición del Dock">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="#555">
@@ -658,6 +691,7 @@ export default function Wizard() {
                   )}
                 </button>
               </div>
+            </div>
             )}
           </div>
         </section>

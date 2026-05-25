@@ -11,8 +11,7 @@ export interface DetectedVM {
 }
 
 export class CheckExistingImage {
-  async execute(projectPath: string): Promise<DetectedVM[]> {
-    const storagePath = path.join(projectPath, 'storage');
+  async execute(storagePath: string): Promise<DetectedVM[]> {
     const vms: DetectedVM[] = [];
 
     try {
