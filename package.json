@@ -25,7 +25,9 @@
     "files": [
       "dist/**/*",
       "package.json",
-      "assets/**/*"
+      "assets/**/*",
+      "src/*.sh",
+      "Dockerfile"
     ],
     "linux": {
       "maintainer": "Inled Group <hi@inled.es>",
@@ -55,7 +57,7 @@
     "@types/yaml": "^1.9.6",
     "@vitest/ui": "^4.1.6",
     "astro": "^6.3.5",
-    "electron": "^42.1.0",
+    "electron": "^42.3.2",
     "electron-builder": "^26.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",

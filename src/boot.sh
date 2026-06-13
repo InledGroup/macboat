@@ -32,7 +32,7 @@ case "${HEIGHT,,}" in
 esac
 
 BOOT_OPTS+=" -smbios type=2"
-BOOT_OPTS+=" -rtc base=utc,base=localtime"
+BOOT_OPTS+=" -rtc base=localtime,clock=host"
 BOOT_OPTS+=" -global ICH9-LPC.disable_s3=1"
 BOOT_OPTS+=" -global ICH9-LPC.disable_s4=1"
 BOOT_OPTS+=" -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off"

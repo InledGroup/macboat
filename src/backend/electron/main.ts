@@ -199,7 +199,7 @@ let currentComposePath: string | null = null;
 async function applyConfig() {
   try {
     const basePath = getBasePath();
-    currentComposePath = await generateCompose.execute(currentConfig, basePath);
+    currentComposePath = await generateCompose.execute(currentConfig, basePath, app.getAppPath());
     await dockerAdapter.start(currentComposePath);
     mainWindow?.webContents.send('status-update', { message: 'Configuración aplicada y contenedor reiniciado' });
   } catch (error: any) {
@@ -317,7 +317,7 @@ ipcMain.handle('start-macos', async (event, config: Partial<MacOSConfig>) => {
   try {
     currentConfig = { ...currentConfig, ...config };
     const basePath = getBasePath();
-    currentComposePath = await generateCompose.execute(currentConfig, basePath);
+    currentComposePath = await generateCompose.execute(currentConfig, basePath, app.getAppPath());
     
     // Start container - not awaiting to avoid blocking the transition
     dockerAdapter.start(currentComposePath).catch(err => {

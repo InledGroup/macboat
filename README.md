@@ -1,4 +1,6 @@
-
+> [!WARNING]
+> This app is going to be rewritten in Python and only for Linux to reach app integration functionality.
+> Due to the early beta state of the repo, you may have errors using Macboat.
 <h1 align="center">MacBoat<br/>
 
 <div align="center">

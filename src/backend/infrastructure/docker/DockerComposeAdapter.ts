@@ -12,7 +12,7 @@ const execAsync = promisify(exec);
 export class DockerComposeAdapter implements DockerRepository {
   constructor(private systemRepository?: SystemRepository) {}
 
-  async generateComposeFile(config: MacOSConfig, projectPath: string): Promise<string> {
+  async generateComposeFile(config: MacOSConfig, storagePath: string, appPath: string): Promise<string> {
     const usbArgs = config.usbDevices
       .map(dev => `-device usb-host,vendorid=${dev.vendorId},productid=${dev.productId}`)
       .join(' ');
@@ -31,7 +31,7 @@ export class DockerComposeAdapter implements DockerRepository {
 
     // Use a unique ID based on name or version
     const vmId = config.name ? config.name.toLowerCase().replace(/[^a-z0-9]/g, '-') : config.version;
-    const vmStoragePath = path.join(projectPath, vmId);
+    const vmStoragePath = path.join(storagePath, vmId);
     const outputPath = path.join(vmStoragePath, 'compose.yml');
 
     // Ensure storage directory exists
@@ -51,8 +51,12 @@ export class DockerComposeAdapter implements DockerRepository {
     const compose: any = {
       services: {
         macos: {
-          image: 'dockurr/macos',
           container_name: `macboat-${vmId}`,
+          build: {
+            context: appPath,
+            dockerfile: 'Dockerfile'
+          },
+          image: 'macboat-local',
           privileged: true,
           environment: {
             VERSION: config.version,
@@ -151,8 +155,8 @@ export class DockerComposeAdapter implements DockerRepository {
     }
     
     try {
-      console.log('DockerComposeAdapter: Ejecutando up -d...');
-      await execAsync(`${composeCmd} -p macboat -f ${composePath} up -d`);
+      console.log('DockerComposeAdapter: Ejecutando up -d --build...');
+      await execAsync(`${composeCmd} -p macboat -f ${composePath} up -d --build`);
       console.log('DockerComposeAdapter: Comando up ejecutado con éxito');
     } catch (e: any) {
       console.error('DockerComposeAdapter: Error fatal al ejecutar docker compose up:', e);
