@@ -17,14 +17,15 @@ class LinuxSystemAdapter(SystemRepository):
         kvm_enabled = self._is_kvm_enabled()
         
         # Check for both modern 'docker compose' (V2) and legacy 'docker-compose' (V1)
-        compose_plugin = self._docker_compose_v2_exists() if docker_installed else False
+        compose_v2 = self._docker_compose_v2_exists() if docker_installed else False
         compose_legacy = self._command_exists('docker-compose')
         
         qemu_installed = self._command_exists('qemu-system-x86_64')
 
         return SystemStatus(
-            docker_installed=docker_installed and (compose_plugin or compose_legacy),
+            docker_installed=docker_installed,
             docker_running=docker_running,
+            compose_installed=compose_v2 or compose_legacy,
             kvm_enabled=kvm_enabled,
             qemu_installed=qemu_installed
         )

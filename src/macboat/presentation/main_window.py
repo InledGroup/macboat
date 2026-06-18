@@ -289,7 +289,16 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             self.status_page.set_title("Missing Dependencies")
             self.status_page.set_icon_name("dialog-error-symbolic")
-            self.status_page.set_description("Check your system configuration.")
+            
+            missing = []
+            if not status.docker_installed: missing.append("Docker Engine")
+            if not status.compose_installed: missing.append("Docker Compose")
+            if not status.docker_running: missing.append("Docker Service (daemon)")
+            if not status.kvm_enabled: missing.append("KVM Support (/dev/kvm access)")
+            if not status.qemu_installed: missing.append("QEMU Emulator")
+            
+            desc = "Please install or fix: " + ", ".join(missing)
+            self.status_page.set_description(desc)
         return False
 
     def on_continue_clicked(self, button):
