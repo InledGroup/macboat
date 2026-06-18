@@ -39,6 +39,7 @@ class MainWindow(Adw.ApplicationWindow):
         super().__init__(**kwargs)
         self.set_title("Macboat")
         self.set_default_size(1024, 768)
+        self.set_icon_name("es.inled.Macboat")
         
         # Track previous page for instructions back button
         self.previous_page = "status"

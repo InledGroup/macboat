@@ -7,6 +7,6 @@ desktop_file = i18n.merge_file(
   install_dir: join_paths(get_option('datadir'), 'applications')
 )
 
-install_data('es.inled.Macboat.svg',
-  install_dir: join_paths(get_option('datadir'), 'icons/hicolor/scalable/apps')
+install_data('es.inled.Macboat.png',
+  install_dir: join_paths(get_option('datadir'), 'icons/hicolor/512x512/apps')
 )

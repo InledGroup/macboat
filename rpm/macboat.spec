@@ -1,5 +1,5 @@
 Name:           macboat
-Version:        2.0.2
+Version:        2.0.3
 Release:        1%{?dist}
 Summary:        Native Python GTK4 application to manage macOS VMs using Docker
 License:        MIT
@@ -39,7 +39,7 @@ running macOS in a Docker container on Linux.
 %{_bindir}/macboat
 %{_datadir}/macboat/
 %{_datadir}/applications/es.inled.Macboat.desktop
-%{_datadir}/icons/hicolor/scalable/apps/es.inled.Macboat.svg
+%{_datadir}/icons/hicolor/512x512/apps/es.inled.Macboat.png
 
 %changelog
 * Thu Jun 18 2026 InledGroup <hi@inled.es> - 0.1.0-1
