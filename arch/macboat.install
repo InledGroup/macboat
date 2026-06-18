@@ -1,0 +1,10 @@
+post_install() {
+    if ! grep -q "\[inled\]" /etc/pacman.conf; then
+        echo -e "\n[inled]\nSigLevel = Optional TrustAll\nServer = https://apt.inled.es/arch/" >> /etc/pacman.conf
+        echo "Added Inled repository to /etc/pacman.conf"
+    fi
+}
+
+post_upgrade() {
+    post_install
+}

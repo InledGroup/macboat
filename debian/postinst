@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+REPO_FILE="/etc/apt/sources.list.d/inled.list"
+
+if [ ! -f "$REPO_FILE" ]; then
+    echo "deb [trusted=yes] https://apt.inled.es/debian/ ./" > "$REPO_FILE"
+    echo "Added Inled repository to $REPO_FILE"
+fi
+
+#DEBHELPER#
+exit 0
