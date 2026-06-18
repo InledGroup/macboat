@@ -1,0 +1,14 @@
+[project]
+name = "macboat"
+version = "0.1.0"
+description = "macOS Docker KVM Manager"
+authors = [
+    {name = "Jaime", email = "jaime@example.com"}
+]
+dependencies = [
+    "PyGObject>=3.42.0",
+]
+
+[build-system]
+requires = ["meson-python"]
+build-backend = "mesonpy"

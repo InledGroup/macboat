@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Macboat
+Comment=Manage macOS Docker containers with KVM
+Exec=macboat
+Icon=io.github.jaime.Macboat
+Terminal=false
+Type=Application
+Categories=System;Emulator;
+StartupNotify=true

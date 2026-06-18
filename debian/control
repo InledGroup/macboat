@@ -1,0 +1,13 @@
+Source: macboat
+Section: utils
+Priority: optional
+Maintainer: Jaime <jaime@example.com>
+Build-Depends: debhelper (>= 10), meson, ninja-build, python3, libgtk-4-dev, libadwaita-1-dev
+Standards-Version: 4.5.0
+
+Package: macboat
+Architecture: any
+Depends: ${python3:Depends}, ${shlibs:Depends}, ${misc:Depends}, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-webkit-6.0, docker.io, docker-compose-v2
+Description: Native Python GTK4 application to manage macOS VMs using Docker
+ Macboat is a desktop application that simplifies the process of
+ running macOS in a Docker container on Linux.
