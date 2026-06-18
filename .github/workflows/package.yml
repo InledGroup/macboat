@@ -1,3 +1,4 @@
+# Final attempt to fix all packaging issues
 name: Build and Package
 
 on:
@@ -14,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential meson ninja-build python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 debhelper devscripts libgtk-4-dev libadwaita-1-dev
+          sudo apt-get install -y build-essential meson ninja-build python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 debhelper devscripts libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
       - name: Prepare changelog
         run: |
           mkdir -p debian
@@ -43,14 +44,12 @@ jobs:
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
           mkdir -p ~/rpmbuild/{SOURCES,SPECS}
-          # Create source tarball named exactly as Source0 expects
+          
+          # Create source tarball named as macboat-VERSION.tar.gz
           tar --transform "s,^,macboat-${VERSION_CLEAN}/," -czf ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz .
-          # Also provide the expected name from spec if it differs or use symlink
-          ln -s ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz ~/rpmbuild/SOURCES/v${VERSION_CLEAN}.tar.gz
           
           cp rpm/macboat.spec ~/rpmbuild/SPECS/
           sed -i "s/Version:        0.1.0/Version:        ${VERSION_CLEAN}/" ~/rpmbuild/SPECS/macboat.spec
-          sed -i "s|Source0:        .*|Source0:        macboat-${VERSION_CLEAN}.tar.gz|" ~/rpmbuild/SPECS/macboat.spec
           
           rpmbuild -ba --nodeps ~/rpmbuild/SPECS/macboat.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
@@ -68,7 +67,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
-          # Use a faster mirror if possible, but Syu is minimum
           pacman -Sy --noconfirm
           pacman -S --noconfirm meson ninja python python-gobject gtk4 libadwaita webkitgtk-6.0 base-devel git sudo
           useradd -m builduser
@@ -79,8 +77,9 @@ jobs:
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
           cd arch
           sed -i "s/pkgver=0.1.0/pkgver=${VERSION_CLEAN}/" PKGBUILD
-          # Ensure source is correct
+          # Set Source to local git repo (which is the current workspace)
           sed -i 's|source=(.*)|source=("macboat::git+file://'${GITHUB_WORKSPACE}'")|' PKGBUILD
+          
           # Build as builduser
           su builduser -c "makepkg --noconfirm -s --nocheck"
       - name: Upload Artifact

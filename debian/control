@@ -2,7 +2,7 @@ Source: macboat
 Section: utils
 Priority: optional
 Maintainer: InledGroup <hi@inled.es>
-Build-Depends: debhelper (>= 10), meson, ninja-build, python3, libgtk-4-dev, libadwaita-1-dev
+Build-Depends: debhelper (>= 10), meson, ninja-build, python3, libgtk-4-dev, libadwaita-1-dev, libwebkitgtk-6.0-dev
 Standards-Version: 4.5.0
 
 Package: macboat

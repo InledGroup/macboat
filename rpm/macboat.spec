@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        Native Python GTK4 application to manage macOS VMs using Docker
 License:        MIT
 URL:            https://inled.es
-Source0:        https://github.com/InledGroup/macos/archive/refs/tags/v%{version}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  meson
 BuildRequires:  ninja-build
