@@ -1,5 +1,5 @@
 Name:           macboat
-Version:        0.1.0
+Version:        2.0.0
 Release:        1%{?dist}
 Summary:        Native Python GTK4 application to manage macOS VMs using Docker
 License:        MIT
