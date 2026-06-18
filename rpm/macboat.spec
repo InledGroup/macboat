@@ -6,6 +6,8 @@ License:        MIT
 URL:            https://inled.es
 Source0:        %{name}-%{version}.tar.gz
 
+%define debug_package %{nil}
+
 BuildRequires:  meson
 BuildRequires:  ninja-build
 BuildRequires:  python3-devel

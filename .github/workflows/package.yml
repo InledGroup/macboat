@@ -25,12 +25,15 @@ jobs:
           echo "  * New release" >> debian/changelog
           echo " -- InledGroup <hi@inled.es>  $(date -R)" >> debian/changelog
       - name: Build deb
-        run: dpkg-buildpackage -us -uc -b
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist
+          mv ../macboat_*.deb dist/
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb-package
-          path: ../macboat_*.deb
+          path: dist/*.deb
 
   build-rpm:
     runs-on: ubuntu-latest
@@ -47,7 +50,7 @@ jobs:
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
           mkdir -p ~/rpmbuild/{SOURCES,SPECS}
-          tar --transform "s,^,macboat-${VERSION_CLEAN}/," -czf ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz .
+          tar --transform "s,^,macboat-${VERSION_CLEAN}/," --exclude=.git -czf ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz .
           cp rpm/macboat.spec ~/rpmbuild/SPECS/
           sed -i "s/Version:        0.1.0/Version:        ${VERSION_CLEAN}/" ~/rpmbuild/SPECS/macboat.spec
           rpmbuild -ba --nodeps ~/rpmbuild/SPECS/macboat.spec
@@ -76,14 +79,12 @@ jobs:
       - name: Build Arch Package
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
-          # Create a source tarball for makepkg to use locally
-          tar -czf "macboat-${VERSION_CLEAN}.tar.gz" --exclude=arch --transform "s,^,macboat-${VERSION_CLEAN}/," .
-          mv "macboat-${VERSION_CLEAN}.tar.gz" arch/
+          # Create a source tarball for makepkg to use locally, outside of the source tree to avoid "file changed as we read it"
+          tar -czf "/tmp/macboat-${VERSION_CLEAN}.tar.gz" --exclude=arch --exclude=.git --transform "s,^,macboat-${VERSION_CLEAN}/," .
+          mv "/tmp/macboat-${VERSION_CLEAN}.tar.gz" arch/
           
           cd arch
           sed -i "s/pkgver=0.1.0/pkgver=${VERSION_CLEAN}/" PKGBUILD
-          # Update PKGBUILD to use the local tarball
-          sed -i 's|source=(.*)|source=("macboat-${pkgver}.tar.gz")|' PKGBUILD
           sed -i '/sha256sums=/c\sha256sums=("SKIP")' PKGBUILD
           
           # Build as builduser
