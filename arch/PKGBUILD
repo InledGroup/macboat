@@ -8,17 +8,11 @@ url="https://inled.es"
 license=('MIT')
 depends=('gtk4' 'libadwaita' 'python-gobject' 'webkitgtk-6.0' 'docker' 'docker-compose')
 makedepends=('meson' 'ninja' 'python')
-source=("macboat::git+file://.")
+source=("macboat-${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
 build() {
-  # If we are in CI, the source is already in the 'macboat' directory thanks to source line
-  if [ -d "macboat" ]; then
-    meson setup build macboat --prefix=/usr
-  else
-    # Fallback for local builds where the source might be in the parent
-    meson setup build .. --prefix=/usr
-  fi
+  meson setup build "macboat-${pkgver}" --prefix=/usr
   meson compile -C build
 }
 

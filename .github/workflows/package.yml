@@ -1,4 +1,3 @@
-# Final attempt to fix all packaging issues
 name: Build and Package
 
 on:
@@ -16,6 +15,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential meson ninja-build python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 debhelper devscripts libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+      - name: Fix permissions
+        run: chmod +x build-aux/meson_post_install.py
       - name: Prepare changelog
         run: |
           mkdir -p debian
@@ -40,17 +41,15 @@ jobs:
       - name: Install dependencies
         run: |
           dnf install -y meson ninja-build python3-devel gtk4-devel libadwaita-devel webkitgtk6.0-devel rpm-build tar
+      - name: Fix permissions
+        run: chmod +x build-aux/meson_post_install.py
       - name: Build RPM
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
           mkdir -p ~/rpmbuild/{SOURCES,SPECS}
-          
-          # Create source tarball named as macboat-VERSION.tar.gz
           tar --transform "s,^,macboat-${VERSION_CLEAN}/," -czf ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz .
-          
           cp rpm/macboat.spec ~/rpmbuild/SPECS/
           sed -i "s/Version:        0.1.0/Version:        ${VERSION_CLEAN}/" ~/rpmbuild/SPECS/macboat.spec
-          
           rpmbuild -ba --nodeps ~/rpmbuild/SPECS/macboat.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
       - name: Upload Artifact
@@ -72,15 +71,23 @@ jobs:
           useradd -m builduser
           echo "builduser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown -R builduser .
+      - name: Fix permissions
+        run: chmod +x build-aux/meson_post_install.py
       - name: Build Arch Package
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
+          # Create a source tarball for makepkg to use locally
+          tar -czf "macboat-${VERSION_CLEAN}.tar.gz" --exclude=arch --transform "s,^,macboat-${VERSION_CLEAN}/," .
+          mv "macboat-${VERSION_CLEAN}.tar.gz" arch/
+          
           cd arch
           sed -i "s/pkgver=0.1.0/pkgver=${VERSION_CLEAN}/" PKGBUILD
-          # Set Source to local git repo (which is the current workspace)
-          sed -i 's|source=(.*)|source=("macboat::git+file://'${GITHUB_WORKSPACE}'")|' PKGBUILD
+          # Update PKGBUILD to use the local tarball
+          sed -i 's|source=(.*)|source=("macboat-${pkgver}.tar.gz")|' PKGBUILD
+          sed -i '/sha256sums=/c\sha256sums=("SKIP")' PKGBUILD
           
           # Build as builduser
+          chown builduser:builduser macboat-${VERSION_CLEAN}.tar.gz PKGBUILD
           su builduser -c "makepkg --noconfirm -s --nocheck"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
