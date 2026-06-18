@@ -79,15 +79,11 @@ jobs:
       - name: Build Arch Package
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
-          # Create a source tarball for makepkg to use locally, outside of the source tree to avoid "file changed as we read it"
           tar -czf "/tmp/macboat-${VERSION_CLEAN}.tar.gz" --exclude=arch --exclude=.git --transform "s,^,macboat-${VERSION_CLEAN}/," .
           mv "/tmp/macboat-${VERSION_CLEAN}.tar.gz" arch/
-          
           cd arch
           sed -i "s/pkgver=0.1.0/pkgver=${VERSION_CLEAN}/" PKGBUILD
           sed -i '/sha256sums=/c\sha256sums=("SKIP")' PKGBUILD
-          
-          # Build as builduser
           chown builduser:builduser macboat-${VERSION_CLEAN}.tar.gz PKGBUILD
           su builduser -c "makepkg --noconfirm -s --nocheck"
       - name: Upload Artifact
@@ -96,13 +92,21 @@ jobs:
           name: arch-package
           path: arch/*.pkg.tar.zst
 
-  notify-inled:
+  publish-release:
     needs: [build-deb, build-rpm, build-arch]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: all-packages
+          merge-multiple: true
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} all-packages/* --clobber
       - name: Notify Inled Repo
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
