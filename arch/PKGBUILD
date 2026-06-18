@@ -6,13 +6,13 @@ pkgdesc="Native Python GTK4 application to manage macOS VMs using Docker"
 arch=('any')
 url="https://inled.es"
 license=('MIT')
-depends=('gtk4' 'libadwaita' 'python-gobject' 'webkitgtk-6.0' 'docker' 'docker-compose')
+depends=('gtk4' 'libadwaita' 'python-pygobject' 'webkitgtk-6.0' 'docker' 'docker-compose')
 makedepends=('meson' 'ninja' 'python')
-source=("macboat-${pkgver}.tar.gz::https://github.com/InledGroup/macos/archive/refs/tags/v${pkgver}.tar.gz")
+source=("macboat::git+file://${GITHUB_WORKSPACE:-.}")
 sha256sums=('SKIP')
 
 build() {
-  arch-meson macos-${pkgver} build
+  meson setup build
   meson compile -C build
 }
 
