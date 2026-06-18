@@ -109,5 +109,5 @@ jobs:
           PACKAGE_URL="https://github.com/InledGroup/macboat/releases/download/${{ github.ref_name }}/macboat_${VERSION_CLEAN}_amd64.deb"
           curl -X POST -H "Accept: application/vnd.github.v3+json" \
                -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
-               https://api.github.com/repos/inled-group/aptrepo/dispatches \
+               https://api.github.com/repos/InledGroup/aptrepo/dispatches \
                -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$PACKAGE_URL\"}}"
