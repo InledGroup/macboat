@@ -1,14 +1,14 @@
 [project]
 name = "macboat"
 version = "0.1.0"
-description = "macOS Docker KVM Manager"
+description = "Native Python GTK4 application to manage macOS VMs using Docker"
 authors = [
-    {name = "Jaime", email = "jaime@example.com"}
+    {name = "InledGroup", email = "hi@inled.es"}
 ]
 dependencies = [
-    "PyGObject>=3.42.0",
+    "pygobject",
 ]
 
 [build-system]
-requires = ["meson-python"]
-build-backend = "mesonpy"
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

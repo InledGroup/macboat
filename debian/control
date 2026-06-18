@@ -1,7 +1,7 @@
 Source: macboat
 Section: utils
 Priority: optional
-Maintainer: Jaime <jaime@example.com>
+Maintainer: InledGroup <hi@inled.es>
 Build-Depends: debhelper (>= 10), meson, ninja-build, python3, libgtk-4-dev, libadwaita-1-dev
 Standards-Version: 4.5.0
 

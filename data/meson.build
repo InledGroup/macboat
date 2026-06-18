@@ -1,12 +1,12 @@
 desktop_file = i18n.merge_file(
-  input: 'io.github.jaime.Macboat.desktop.in',
-  output: 'io.github.jaime.Macboat.desktop',
+  input: 'es.inled.Macboat.desktop.in',
+  output: 'es.inled.Macboat.desktop',
   type: 'desktop',
   po_dir: '../po',
   install: true,
   install_dir: join_paths(get_option('datadir'), 'applications')
 )
 
-install_data('io.github.jaime.Macboat.svg',
+install_data('es.inled.Macboat.svg',
   install_dir: join_paths(get_option('datadir'), 'icons/hicolor/scalable/apps')
 )

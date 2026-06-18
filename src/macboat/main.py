@@ -22,7 +22,7 @@ from macboat.presentation.main_window import MainWindow
 
 class MacboatApp(Adw.Application):
     def __init__(self):
-        super().__init__(application_id='io.github.jaime.Macboat',
+        super().__init__(application_id='es.inled.Macboat',
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
 
     def do_activate(self):

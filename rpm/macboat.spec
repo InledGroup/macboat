@@ -3,8 +3,8 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Native Python GTK4 application to manage macOS VMs using Docker
 License:        MIT
-URL:            https://github.com/jaime/macos
-Source0:        %{name}-%{version}.tar.gz
+URL:            https://inled.es
+Source0:        https://github.com/InledGroup/macos/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires:  meson
 BuildRequires:  ninja-build
@@ -36,9 +36,9 @@ running macOS in a Docker container on Linux.
 %files
 %{_bindir}/macboat
 %{_datadir}/macboat/
-%{_datadir}/applications/io.github.jaime.Macboat.desktop
-%{_datadir}/icons/hicolor/scalable/apps/io.github.jaime.Macboat.svg
+%{_datadir}/applications/es.inled.Macboat.desktop
+%{_datadir}/icons/hicolor/scalable/apps/es.inled.Macboat.svg
 
 %changelog
-* Thu Jun 18 2026 Jaime <jaime@example.com> - 0.1.0-1
+* Thu Jun 18 2026 InledGroup <hi@inled.es> - 0.1.0-1
 - Initial release

@@ -20,7 +20,7 @@ jobs:
           mkdir -p debian
           echo "macboat (${GITHUB_REF_NAME#v}) unstable; urgency=medium" > debian/changelog
           echo "  * New release" >> debian/changelog
-          echo " -- Jaime <jaime@example.com>  $(date -R)" >> debian/changelog
+          echo " -- InledGroup <hi@inled.es>  $(date -R)" >> debian/changelog
       - name: Build deb
         run: dpkg-buildpackage -us -uc -b
       - name: Upload Artifact
@@ -43,6 +43,7 @@ jobs:
           tar --transform "s,^,macboat-${VERSION}/," -czf ~/rpmbuild/SOURCES/macboat-${VERSION}.tar.gz .
           cp rpm/macboat.spec ~/rpmbuild/SPECS/
           sed -i "s/Version:        0.1.0/Version:        ${VERSION}/" ~/rpmbuild/SPECS/macboat.spec
+          sed -i "s|Source0:        .*|Source0:        https://github.com/InledGroup/macos/archive/refs/tags/v${VERSION}.tar.gz|" ~/rpmbuild/SPECS/macboat.spec
           rpmbuild -ba ~/rpmbuild/SPECS/macboat.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
       - name: Upload Artifact
@@ -84,9 +85,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Notify Inled Repo
         run: |
-          # Note: We use the .deb URL for the notification as per documentation example.
-          # The central repo will handle finding other formats if needed or we can expand this.
-          PACKAGE_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/macboat_${{ github.ref_name#v }}_amd64.deb"
+          PACKAGE_URL="https://github.com/InledGroup/macos/releases/download/${{ github.ref_name }}/macboat_${{ github.ref_name#v }}_amd64.deb"
           curl -X POST -H "Accept: application/vnd.github.v3+json" \
                -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
                https://api.github.com/repos/inled-group/aptrepo/dispatches \
