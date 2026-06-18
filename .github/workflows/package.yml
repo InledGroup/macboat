@@ -115,8 +115,29 @@ jobs:
       - name: Notify Inled Repo
         run: |
           VERSION_CLEAN=${GITHUB_REF_NAME#v}
-          PACKAGE_URL="https://github.com/InledGroup/macboat/releases/download/${{ github.ref_name }}/macboat_${VERSION_CLEAN}_amd64.deb"
+          BASE_URL="https://github.com/InledGroup/macboat/releases/download/${{ github.ref_name }}"
+          
+          # 1. Debian
+          DEB_URL="${BASE_URL}/macboat_${VERSION_CLEAN}_amd64.deb"
           curl -X POST -H "Accept: application/vnd.github.v3+json" \
                -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
                https://api.github.com/repos/InledGroup/apt/dispatches \
-               -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$PACKAGE_URL\"}}"
+               -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$DEB_URL\", \"type\": \"deb\"}}"
+          
+          # 2. RPM
+          # Note: Fedora versions in CI might produce different dist tags, usually .fc40 or similar.
+          # We use a wildcard approach or specific knowledge. Based on logs it was .fc44.
+          RPM_FILE=$(ls all-packages/*.rpm | head -n 1 | xargs basename)
+          RPM_URL="${BASE_URL}/${RPM_FILE}"
+          curl -X POST -H "Accept: application/vnd.github.v3+json" \
+               -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
+               https://api.github.com/repos/InledGroup/apt/dispatches \
+               -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$RPM_URL\", \"type\": \"rpm\"}}"
+          
+          # 3. Arch
+          ARCH_FILE=$(ls all-packages/*.pkg.tar.zst | head -n 1 | xargs basename)
+          ARCH_URL="${BASE_URL}/${ARCH_FILE}"
+          curl -X POST -H "Accept: application/vnd.github.v3+json" \
+               -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
+               https://api.github.com/repos/InledGroup/apt/dispatches \
+               -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$ARCH_URL\", \"type\": \"arch\"}}"
