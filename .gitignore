@@ -1,5 +1,12 @@
-
+# Git ignore rules for Macboat
 dist-package/
 dist/
 node_modules/
 storage/
+
+# Python caching / Precompiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/

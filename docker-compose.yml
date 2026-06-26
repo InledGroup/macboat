@@ -1,0 +1,25 @@
+services:
+  macos:
+    cap_add:
+    - NET_ADMIN
+    container_name: macboat-macos
+    devices:
+    - /dev/kvm
+    - /dev/net/tun
+    dns:
+    - 8.8.8.8
+    - 1.1.1.1
+    environment:
+      CPU_CORES: '4'
+      DISK_SIZE: 64G
+      RAM_SIZE: 8G
+      VERSION: '15'
+    image: dockurr/macos
+    ports:
+    - 8006:8006
+    - 5900:5900
+    stop_grace_period: 2m
+    volumes:
+    - macboat-storage:/storage
+volumes:
+  macboat-storage: null

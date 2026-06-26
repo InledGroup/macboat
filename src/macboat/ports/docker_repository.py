@@ -37,3 +37,35 @@ class DockerRepository(ABC):
     def run_compose(self, compose_path: str) -> Optional[object]:
         """Runs docker compose up and returns the process handle."""
         pass
+
+    @abstractmethod
+    def list_existing_vms(self) -> list:
+        """Lists existing macOS containers on the system (both new and legacy).
+        Lista los contenedores macOS existentes en el sistema (nuevos y legados)."""
+        pass
+
+    @abstractmethod
+    def start_legacy_vm(self, container_name: str) -> Optional[object]:
+        """Starts a legacy VM container and attaches stdout/stderr for logging.
+        Arranca un contenedor VM legado y acopla stdout/stderr para captura de logs."""
+        pass
+
+    @abstractmethod
+    def stop_legacy_vm(self, container_name: str) -> bool:
+        """Stops a running legacy VM container.
+        Detiene un contenedor VM legado en ejecución."""
+        pass
+
+    @abstractmethod
+    def restart_legacy_vm(self, container_name: str) -> bool:
+        """Restarts a legacy VM container.
+        Reinicia un contenedor VM legado."""
+        pass
+
+    @abstractmethod
+    def get_container_web_port(self, container_name: str) -> int:
+        """Inspects the container to find the host port mapped to 8006.
+        Inspecciona el contenedor para encontrar el puerto del host mapeado al 8006."""
+        pass
+
+

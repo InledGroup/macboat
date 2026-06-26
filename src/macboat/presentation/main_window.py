@@ -93,13 +93,14 @@ class MainWindow(Adw.ApplicationWindow):
         self.spinner.set_halign(Gtk.Align.CENTER)
         self.status_content.append(self.spinner)
 
-        self.start_button = Gtk.Button(label="Start Existing VM")
-        self.start_button.set_halign(Gtk.Align.CENTER)
-        self.start_button.set_visible(False)
-        self.start_button.add_css_class("suggested-action")
-        self.start_button.add_css_class("pill")
-        self.start_button.connect("clicked", self.on_start_existing_clicked)
-        self.status_content.append(self.start_button)
+        self.vm_list_box = Gtk.ListBox()
+        self.vm_list_box.add_css_class("boxed-list")
+        self.vm_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        
+        self.vm_list_group = Adw.PreferencesGroup(title="Select a VM to run / Selecciona una VM a ejecutar")
+        self.vm_list_group.add(self.vm_list_box)
+        self.vm_list_group.set_visible(False)
+        self.status_content.append(self.vm_list_group)
 
         self.continue_button = Gtk.Button(label="Setup New VM")
         self.continue_button.set_halign(Gtk.Align.CENTER)
@@ -271,24 +272,78 @@ class MainWindow(Adw.ApplicationWindow):
         self.spinner.set_visible(False)
         if status.is_ready:
             self.instructions_button.set_visible(True)
-            installed = self.docker_adapter.is_vm_installed()
-            if installed:
-                self.status_page.set_title("macOS Found")
+            
+            # Obtener y listar VMs existentes (nuevas y legacy)
+            # Retrieve and list existing VMs (both new and legacy)
+            vms = self.docker_adapter.list_existing_vms()
+            
+            # Limpiar filas anteriores de la lista
+            # Clear previous rows from the list box
+            while True:
+                row = self.vm_list_box.get_first_child()
+                if not row:
+                    break
+                self.vm_list_box.remove(row)
+                
+            if vms:
+                self.status_page.set_title("Select Virtual Machine / Selecciona Máquina Virtual")
                 self.status_page.set_description("An existing macOS instance was detected. PLEASE check instructions if this is your first time.")
                 self.status_page.set_icon_name("drive-harddisk-symbolic")
-                self.start_button.set_visible(True)
-                self.continue_button.set_visible(True)
-                self.continue_button.set_label("Reconfigure VM")
+                
+                # Rellenar lista con las VMs detectadas
+                # Populate the list with detected VMs
+                for vm in vms:
+                    action_row = Adw.ActionRow(title=vm['name'])
+                    action_row.set_subtitle(f"Image: {vm['image']} | {vm['status']}")
+                    
+                    # Icono del botón según si está corriendo o no
+                    # Button icon based on whether it is running
+                    is_running = vm['state'] == "running"
+                    icon_name = "media-playback-stop-symbolic" if is_running else "media-playback-start-symbolic"
+                    icon = Gtk.Image.new_from_icon_name(icon_name)
+                    
+                    btn = Gtk.Button()
+                    btn.set_child(icon)
+                    btn.set_valign(Gtk.Align.CENTER)
+                    btn.add_css_class("flat")
+                    
+                    if is_running:
+                        btn.add_css_class("destructive-action")
+                        btn.set_tooltip_text("Stop VM / Detener VM")
+                        btn.connect("clicked", self.on_stop_vm_clicked, vm)
+                    else:
+                        btn.add_css_class("suggested-action")
+                        btn.set_tooltip_text("Start VM / Arrancar VM")
+                        btn.connect("clicked", self.on_start_vm_clicked, vm)
+                        
+                    action_row.add_suffix(btn)
+                    self.vm_list_box.append(action_row)
+                
+                self.vm_list_group.set_visible(True)
+                
+                # Habilitar Reconfiguración si tenemos archivo compose local
+                # Enable Reconfiguration if we have a local compose file
+                installed = self.docker_adapter.is_vm_installed()
+                if installed:
+                    self.continue_button.set_visible(True)
+                    self.continue_button.set_label("Reconfigure VM")
+                    self.continue_button.remove_css_class("suggested-action")
+                else:
+                    self.continue_button.set_visible(False)
             else:
                 self.status_page.set_title("System Ready")
                 self.status_page.set_description("All dependencies are met. You MUST read the instructions before starting.")
                 self.status_page.set_icon_name("object-select-symbolic")
+                
+                self.vm_list_group.set_visible(False)
                 self.continue_button.set_visible(True)
                 self.continue_button.set_label("Setup New VM")
                 self.continue_button.add_css_class("suggested-action")
         else:
             self.status_page.set_title("Missing Dependencies")
             self.status_page.set_icon_name("dialog-error-symbolic")
+            self.vm_list_group.set_visible(False)
+            self.continue_button.set_visible(False)
             
             missing = []
             if not status.docker_installed: missing.append("Docker Engine")
@@ -312,9 +367,35 @@ class MainWindow(Adw.ApplicationWindow):
             self.wizard.disk_spin.set_value(existing_config.storage_gb)
         self.stack.set_visible_child_name("wizard")
 
-    def on_start_existing_clicked(self, button):
-        config = self.docker_adapter.get_existing_config()
-        self.launch_vm(config)
+    def on_start_vm_clicked(self, button, vm):
+        self.current_vm_name = vm['name']
+        self.current_vm_is_legacy = vm['is_legacy']
+        
+        if vm['name'] == "macboat-macos":
+            # Si es la VM del compose nuevo, leemos su configuración
+            # If it's the new compose VM, we read its configuration
+            config = self.docker_adapter.get_existing_config()
+            if config:
+                self.launch_vm_by_config(config)
+                return
+                
+        # Para legacy VMs, buscamos el puerto web mapeado al puerto 8006 dinámicamente
+        # For legacy VMs, we dynamically inspect the host port mapped to 8006
+        web_port = self.docker_adapter.get_container_web_port(vm['name'])
+        self.launch_legacy_vm(vm['name'], web_port)
+
+    def on_stop_vm_clicked(self, button, vm):
+        # Parar la VM desde la fila de la lista
+        # Stop the VM from the list row
+        success = False
+        if vm['is_legacy']:
+            success = self.docker_adapter.stop_legacy_vm(vm['name'])
+        else:
+            success = self.docker_adapter.stop_vm()
+            
+        if success:
+            self.overlay.add_toast(Adw.Toast(title=f"VM {vm['name']} Stopped / Detenida"))
+            self.check_dependencies() # Refrescar lista
 
     def on_launch_clicked(self, button):
         version_list = ["sequoia", "sonoma", "ventura", "monterey", "big-sur", "catalina"]
@@ -323,9 +404,11 @@ class MainWindow(Adw.ApplicationWindow):
                              cpu_cores=int(self.wizard.cpu_spin.get_value()), 
                              storage_gb=int(self.wizard.disk_spin.get_value()))
         if self.docker_adapter.generate_compose_file(config, "docker-compose.yml"):
-            self.launch_vm(config)
+            self.current_vm_name = "macboat-macos"
+            self.current_vm_is_legacy = False
+            self.launch_vm_by_config(config)
 
-    def launch_vm(self, config):
+    def launch_vm_by_config(self, config):
         process = self.docker_adapter.run_compose("docker-compose.yml")
         if process:
             self.stack.set_visible_child_name("vm")
@@ -336,14 +419,38 @@ class MainWindow(Adw.ApplicationWindow):
             toast.set_timeout(10)
             self.overlay.add_toast(toast)
 
+    def launch_legacy_vm(self, container_name, web_port):
+        process = self.docker_adapter.start_legacy_vm(container_name)
+        if process:
+            self.stack.set_visible_child_name("vm")
+            if WEBKIT_AVAILABLE:
+                self.web_view.load_uri(f"http://localhost:{web_port}")
+            self.stream_logs(process)
+            toast = Adw.Toast(title=f"Starting VM {container_name}... Access via http://localhost:{web_port}")
+            toast.set_timeout(10)
+            self.overlay.add_toast(toast)
+
     def on_power_off_clicked(self, button):
-        if self.docker_adapter.stop_vm():
+        success = False
+        if hasattr(self, 'current_vm_is_legacy') and self.current_vm_is_legacy:
+            success = self.docker_adapter.stop_legacy_vm(self.current_vm_name)
+        else:
+            success = self.docker_adapter.stop_vm()
+            
+        if success:
             self.stack.set_visible_child_name("status")
-            self.overlay.add_toast(Adw.Toast(title="VM Stopped"))
+            self.overlay.add_toast(Adw.Toast(title="VM Stopped / Detenida"))
+            self.check_dependencies()
 
     def on_restart_clicked(self, button):
-        if self.docker_adapter.restart_vm():
-            self.overlay.add_toast(Adw.Toast(title="VM Restarting..."))
+        success = False
+        if hasattr(self, 'current_vm_is_legacy') and self.current_vm_is_legacy:
+            success = self.docker_adapter.restart_legacy_vm(self.current_vm_name)
+        else:
+            success = self.docker_adapter.restart_vm()
+            
+        if success:
+            self.overlay.add_toast(Adw.Toast(title="VM Restarting... / Reiniciando VM..."))
 
     def on_reload_clicked(self, button):
         if WEBKIT_AVAILABLE:
@@ -365,3 +472,4 @@ class MainWindow(Adw.ApplicationWindow):
         adj = self.logs_view.get_vadjustment()
         GLib.idle_add(lambda: adj.set_value(adj.get_upper() - adj.get_page_size()))
         return False
+
