@@ -1,9 +1,15 @@
 name: Build and Package
 
+# This workflow builds and packages the application for Debian, RPM, and Arch Linux.
+# Este flujo de trabajo compila y empaqueta la aplicación para Debian, RPM y Arch Linux.
+
 on:
   push:
     tags:
       - 'v*'
+    branches:
+      - master
+      - main
   workflow_dispatch:
 
 permissions:
@@ -11,7 +17,27 @@ permissions:
   packages: write
 
 jobs:
+  get-version:
+    # Run if manual dispatch, or tag push, or branch push containing [RELEASE] in the commit message
+    # Ejecutar si es ejecución manual, push de etiqueta o push en rama con [RELEASE] en el mensaje del commit
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'push' && github.event.head_commit != null && contains(github.event.head_commit.message, '[RELEASE]'))
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        # Extract the version from meson.build
+        # Extraer la versión de meson.build
+        run: |
+          VERSION=$(python3 -c "import re; content = open('meson.build').read(); print(re.search(r\"version:\s*'([^']+)'\", content).group(1))")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
   build-deb:
+    needs: get-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,9 +48,11 @@ jobs:
       - name: Fix permissions
         run: chmod +x build-aux/meson_post_install.py
       - name: Prepare changelog
+        # Create changelog with the clean version from meson.build
+        # Crear changelog con la versión limpia obtenida de meson.build
         run: |
           mkdir -p debian
-          VERSION_CLEAN=${GITHUB_REF_NAME#v}
+          VERSION_CLEAN="${{ needs.get-version.outputs.version }}"
           echo "macboat ($VERSION_CLEAN) unstable; urgency=medium" > debian/changelog
           echo "  * New release" >> debian/changelog
           echo " -- InledGroup <hi@inled.es>  $(date -R)" >> debian/changelog
@@ -40,6 +68,7 @@ jobs:
           path: dist/*.deb
 
   build-rpm:
+    needs: get-version
     runs-on: ubuntu-latest
     container:
       image: fedora:latest
@@ -51,8 +80,10 @@ jobs:
       - name: Fix permissions
         run: chmod +x build-aux/meson_post_install.py
       - name: Build RPM
+        # Compile RPM package with the version from meson.build
+        # Compilar paquete RPM con la versión de meson.build
         run: |
-          VERSION_CLEAN=${GITHUB_REF_NAME#v}
+          VERSION_CLEAN="${{ needs.get-version.outputs.version }}"
           mkdir -p ~/rpmbuild/{SOURCES,SPECS}
           tar --transform "s,^,macboat-${VERSION_CLEAN}/," --exclude=.git -czf ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz .
           cp rpm/macboat.spec ~/rpmbuild/SPECS/
@@ -66,6 +97,7 @@ jobs:
           path: ./*.rpm
 
   build-arch:
+    needs: get-version
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
@@ -81,8 +113,10 @@ jobs:
       - name: Fix permissions
         run: chmod +x build-aux/meson_post_install.py
       - name: Build Arch Package
+        # Build Arch package with the version from meson.build
+        # Construir paquete de Arch con la versión de meson.build
         run: |
-          VERSION_CLEAN=${GITHUB_REF_NAME#v}
+          VERSION_CLEAN="${{ needs.get-version.outputs.version }}"
           tar -czf "/tmp/macboat-${VERSION_CLEAN}.tar.gz" --exclude=arch --exclude=.git --transform "s,^,macboat-${VERSION_CLEAN}/," .
           mv "/tmp/macboat-${VERSION_CLEAN}.tar.gz" arch/
           cd arch
@@ -97,9 +131,8 @@ jobs:
           path: arch/*.pkg.tar.zst
 
   publish-release:
-    needs: [build-deb, build-rpm, build-arch]
+    needs: [get-version, build-deb, build-rpm, build-arch]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
       - name: Download all artifacts
@@ -108,14 +141,22 @@ jobs:
           path: all-packages
           merge-multiple: true
       - name: Upload to GitHub Release
+        # Create GitHub Release and upload package assets
+        # Crear la Release en GitHub y subir los paquetes compilados
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} all-packages/* --clobber
+          TAG_NAME="v${{ needs.get-version.outputs.version }}"
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release create "$TAG_NAME" --title "$TAG_NAME" --notes "Release $TAG_NAME"
+          fi
+          gh release upload "$TAG_NAME" all-packages/* --clobber
       - name: Notify Inled Repo
+        # Send dispatch event to update repositories
+        # Enviar evento de despacho para actualizar los repositorios
         run: |
-          VERSION_CLEAN=${GITHUB_REF_NAME#v}
-          BASE_URL="https://github.com/InledGroup/macboat/releases/download/${{ github.ref_name }}"
+          VERSION_CLEAN="${{ needs.get-version.outputs.version }}"
+          BASE_URL="https://github.com/InledGroup/macboat/releases/download/v${VERSION_CLEAN}"
           
           # 1. Debian
           DEB_URL="${BASE_URL}/macboat_${VERSION_CLEAN}_amd64.deb"
