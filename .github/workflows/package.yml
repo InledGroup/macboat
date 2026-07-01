@@ -161,6 +161,7 @@ jobs:
           # 1. Debian
           DEB_URL="${BASE_URL}/macboat_${VERSION_CLEAN}_amd64.deb"
           curl -X POST -H "Accept: application/vnd.github.v3+json" \
+               -H "Content-Type: application/json" \
                -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
                https://api.github.com/repos/InledGroup/apt/dispatches \
                -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$DEB_URL\", \"type\": \"deb\"}}"
@@ -171,6 +172,7 @@ jobs:
           RPM_FILE=$(ls all-packages/*.rpm | head -n 1 | xargs basename)
           RPM_URL="${BASE_URL}/${RPM_FILE}"
           curl -X POST -H "Accept: application/vnd.github.v3+json" \
+               -H "Content-Type: application/json" \
                -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
                https://api.github.com/repos/InledGroup/apt/dispatches \
                -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$RPM_URL\", \"type\": \"rpm\"}}"
@@ -179,6 +181,7 @@ jobs:
           ARCH_FILE=$(ls all-packages/*.pkg.tar.zst | head -n 1 | xargs basename)
           ARCH_URL="${BASE_URL}/${ARCH_FILE}"
           curl -X POST -H "Accept: application/vnd.github.v3+json" \
+               -H "Content-Type: application/json" \
                -H "Authorization: token ${{ secrets.INLED_REPO_PAT }}" \
                https://api.github.com/repos/InledGroup/apt/dispatches \
                -d "{\"event_type\": \"package_upload\", \"client_payload\": {\"package_url\": \"$ARCH_URL\", \"type\": \"arch\"}}"
