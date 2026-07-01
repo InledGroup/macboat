@@ -33,7 +33,7 @@ Choose your MacOS version and start the installation process with a simple GUI.
  - Network passthrough
 
  ## Demo  
- ![Video](macboat-demo-fast.mp4)  
+ ![Video](macboat-demo-fast-ezgif.com-video-to-gif-converter.gif)  
  
  ## Work in progress.  
  We are working on a full app integration like Winboat. For now, only runs MacOS with full desktop, no headless mode.
