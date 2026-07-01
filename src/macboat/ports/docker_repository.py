@@ -5,6 +5,7 @@
 Port for Docker operations.
 """
 from abc import ABC, abstractmethod
+from typing import Optional
 from macboat.domain.macos_config import MacOSConfig
 
 class DockerRepository(ABC):
@@ -66,6 +67,12 @@ class DockerRepository(ABC):
     def get_container_web_port(self, container_name: str) -> int:
         """Inspects the container to find the host port mapped to 8006.
         Inspecciona el contenedor para encontrar el puerto del host mapeado al 8006."""
+        pass
+
+    @abstractmethod
+    def delete_vm(self, container_name: str, is_legacy: bool) -> bool:
+        """Deletes/removes a VM container and its associated configuration and volumes if applicable.
+        Elimina el contenedor de la VM y su configuración y volúmenes asociados si corresponde."""
         pass
 
 

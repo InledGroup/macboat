@@ -102,12 +102,27 @@ class MainWindow(Adw.ApplicationWindow):
         self.vm_list_group.set_visible(False)
         self.status_content.append(self.vm_list_group)
 
-        self.continue_button = Gtk.Button(label="Setup New VM")
-        self.continue_button.set_halign(Gtk.Align.CENTER)
-        self.continue_button.set_visible(False)
-        self.continue_button.add_css_class("pill")
-        self.continue_button.connect("clicked", self.on_continue_clicked)
-        self.status_content.append(self.continue_button)
+        # Horizontal box for VM action buttons
+        # Caja horizontal para los botones de acción de las VMs
+        self.action_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.action_button_box.set_halign(Gtk.Align.CENTER)
+        self.action_button_box.set_visible(False)
+        self.status_content.append(self.action_button_box)
+
+        # Button to setup a new VM
+        # Botón para configurar una nueva VM
+        self.setup_new_button = Gtk.Button(label="Setup New VM / Configurar Nueva VM")
+        self.setup_new_button.add_css_class("pill")
+        self.setup_new_button.add_css_class("suggested-action")
+        self.setup_new_button.connect("clicked", self.on_setup_new_clicked)
+        self.action_button_box.append(self.setup_new_button)
+
+        # Button to reconfigure an existing VM
+        # Botón para reconfigurar una VM existente
+        self.reconfigure_button = Gtk.Button(label="Reconfigure VM / Reconfigurar VM")
+        self.reconfigure_button.add_css_class("pill")
+        self.reconfigure_button.connect("clicked", self.on_reconfigure_clicked)
+        self.action_button_box.append(self.reconfigure_button)
 
         self.instructions_button = Gtk.Button(label="Read Instructions & EULA")
         self.instructions_button.set_halign(Gtk.Align.CENTER)
@@ -272,6 +287,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.spinner.set_visible(False)
         if status.is_ready:
             self.instructions_button.set_visible(True)
+            self.action_button_box.set_visible(True)
             
             # Obtener y listar VMs existentes (nuevas y legacy)
             # Retrieve and list existing VMs (both new and legacy)
@@ -317,6 +333,19 @@ class MainWindow(Adw.ApplicationWindow):
                         btn.connect("clicked", self.on_start_vm_clicked, vm)
                         
                     action_row.add_suffix(btn)
+                    
+                    # Botón para eliminar la VM
+                    # Button to delete the VM
+                    delete_icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
+                    delete_btn = Gtk.Button()
+                    delete_btn.set_child(delete_icon)
+                    delete_btn.set_valign(Gtk.Align.CENTER)
+                    delete_btn.add_css_class("flat")
+                    delete_btn.add_css_class("destructive-action")
+                    delete_btn.set_tooltip_text("Delete VM / Eliminar VM")
+                    delete_btn.connect("clicked", self.on_delete_vm_clicked, vm)
+                    action_row.add_suffix(delete_btn)
+                    
                     self.vm_list_box.append(action_row)
                 
                 self.vm_list_group.set_visible(True)
@@ -324,26 +353,25 @@ class MainWindow(Adw.ApplicationWindow):
                 # Habilitar Reconfiguración si tenemos archivo compose local
                 # Enable Reconfiguration if we have a local compose file
                 installed = self.docker_adapter.is_vm_installed()
+                self.setup_new_button.set_visible(True)
                 if installed:
-                    self.continue_button.set_visible(True)
-                    self.continue_button.set_label("Reconfigure VM")
-                    self.continue_button.remove_css_class("suggested-action")
+                    self.reconfigure_button.set_visible(True)
                 else:
-                    self.continue_button.set_visible(False)
+                    self.reconfigure_button.set_visible(False)
             else:
                 self.status_page.set_title("System Ready")
                 self.status_page.set_description("All dependencies are met. You MUST read the instructions before starting.")
                 self.status_page.set_icon_name("object-select-symbolic")
                 
                 self.vm_list_group.set_visible(False)
-                self.continue_button.set_visible(True)
-                self.continue_button.set_label("Setup New VM")
-                self.continue_button.add_css_class("suggested-action")
+                self.setup_new_button.set_visible(True)
+                self.reconfigure_button.set_visible(False)
         else:
             self.status_page.set_title("Missing Dependencies")
             self.status_page.set_icon_name("dialog-error-symbolic")
             self.vm_list_group.set_visible(False)
-            self.continue_button.set_visible(False)
+            self.instructions_button.set_visible(False)
+            self.action_button_box.set_visible(False)
             
             missing = []
             if not status.docker_installed: missing.append("Docker Engine")
@@ -356,7 +384,18 @@ class MainWindow(Adw.ApplicationWindow):
             self.status_page.set_description(desc)
         return False
 
-    def on_continue_clicked(self, button):
+    def on_setup_new_clicked(self, button):
+        # Reset wizard fields to recommended defaults
+        # Restablecer los campos del asistente a los valores recomendados por defecto
+        self.wizard.version_row.set_selected(0)
+        self.wizard.ram_spin.set_value(8)
+        self.wizard.cpu_spin.set_value(4)
+        self.wizard.disk_spin.set_value(128)
+        self.stack.set_visible_child_name("wizard")
+
+    def on_reconfigure_clicked(self, button):
+        # Load the configuration of the existing compose VM
+        # Cargar la configuración de la VM de compose existente
         existing_config = self.docker_adapter.get_existing_config()
         if existing_config:
             version_list = ["sequoia", "sonoma", "ventura", "monterey", "big-sur", "catalina"]
@@ -366,6 +405,45 @@ class MainWindow(Adw.ApplicationWindow):
             self.wizard.cpu_spin.set_value(existing_config.cpu_cores)
             self.wizard.disk_spin.set_value(existing_config.storage_gb)
         self.stack.set_visible_child_name("wizard")
+
+    def on_delete_vm_clicked(self, button, vm):
+        # Show native Libadwaita message dialog for VM deletion confirmation
+        # Mostrar diálogo de mensaje nativo de Libadwaita para confirmación de eliminación de VM
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Delete VM / Eliminar VM",
+            body=f"Are you sure you want to delete {vm['name']}? This action is irreversible.\n¿Estás seguro de que deseas eliminar {vm['name']}? Esta acción es irreversible."
+        )
+        dialog.add_response("cancel", "Cancel / Cancelar")
+        dialog.add_response("delete", "Delete / Eliminar")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        
+        def on_response(dialog, response):
+            if response == "delete":
+                self.perform_delete_vm(vm)
+                
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def perform_delete_vm(self, vm):
+        # Detener primero si está corriendo
+        # Stop first if running
+        if vm['state'] == "running":
+            if vm['is_legacy']:
+                self.docker_adapter.stop_legacy_vm(vm['name'])
+            else:
+                self.docker_adapter.stop_vm()
+                
+        # Eliminar VM
+        # Delete VM
+        success = self.docker_adapter.delete_vm(vm['name'], vm['is_legacy'])
+        if success:
+            self.overlay.add_toast(Adw.Toast(title=f"VM {vm['name']} Deleted / Eliminada"))
+            self.check_dependencies() # Refresh list
+        else:
+            self.overlay.add_toast(Adw.Toast(title=f"Error deleting VM / Error al eliminar VM"))
 
     def on_start_vm_clicked(self, button, vm):
         self.current_vm_name = vm['name']

@@ -324,4 +324,28 @@ class DockerComposeAdapter(DockerRepository):
             print(f"Error reading container port, fallback to 8006: {e}")
             return 8006
 
+    def delete_vm(self, container_name: str, is_legacy: bool) -> bool:
+        """Deletes/removes a VM container and its associated configuration and volumes if applicable.
+        Elimina el contenedor de la VM y su configuración y volúmenes asociados si corresponde."""
+        try:
+            # Remove/delete container forcefully
+            # Eliminar contenedor a la fuerza
+            subprocess.run(['docker', 'rm', '-f', container_name], check=True)
+            
+            if not is_legacy:
+                # Remove docker-compose file if it exists
+                # Eliminar archivo docker-compose si existe
+                if os.path.exists(self.compose_path):
+                    os.remove(self.compose_path)
+                
+                # Retrieve existing storage volume name and delete it
+                # Obtener el nombre del volumen de almacenamiento existente y eliminarlo
+                volume_name = self._detect_existing_volume()
+                subprocess.run(['docker', 'volume', 'rm', volume_name], capture_output=True)
+                
+            return True
+        except Exception as e:
+            print(f"Error deleting VM {container_name}: {e}")
+            return False
+
 
