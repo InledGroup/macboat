@@ -75,4 +75,10 @@ class DockerRepository(ABC):
         Elimina el contenedor de la VM y su configuración y volúmenes asociados si corresponde."""
         pass
 
+    @abstractmethod
+    def get_container_ip(self, container_name: str) -> str:
+        """Inspects the container to find its IP address.
+        Inspecciona el contenedor para encontrar su dirección IP."""
+        pass
+
 

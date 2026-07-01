@@ -4,6 +4,8 @@
 """
 Main application view.
 """
+import os
+import re
 import gi
 import threading
 
@@ -117,13 +119,6 @@ class MainWindow(Adw.ApplicationWindow):
         self.setup_new_button.connect("clicked", self.on_setup_new_clicked)
         self.action_button_box.append(self.setup_new_button)
 
-        # Button to reconfigure an existing VM
-        # Botón para reconfigurar una VM existente
-        self.reconfigure_button = Gtk.Button(label="Reconfigure VM / Reconfigurar VM")
-        self.reconfigure_button.add_css_class("pill")
-        self.reconfigure_button.connect("clicked", self.on_reconfigure_clicked)
-        self.action_button_box.append(self.reconfigure_button)
-
         self.instructions_button = Gtk.Button(label="Read Instructions & EULA")
         self.instructions_button.set_halign(Gtk.Align.CENTER)
         self.instructions_button.set_visible(False)
@@ -149,6 +144,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.wizard.set_margin_end(24)
         self.wizard.set_vexpand(True)
         self.wizard.launch_button.connect("clicked", self.on_launch_clicked)
+        self.wizard.disk_select_btn.connect("clicked", self.on_select_disks_clicked)
+        self.wizard.usb_select_btn.connect("clicked", self.on_select_usb_clicked)
         self.wizard_box.append(self.wizard)
         self.stack.add_named(self.wizard_box, "wizard")
 
@@ -334,6 +331,18 @@ class MainWindow(Adw.ApplicationWindow):
                         
                     action_row.add_suffix(btn)
                     
+                    # Botón para reconfigurar la VM (solo si no es legacy)
+                    # Button to reconfigure the VM (only if not legacy)
+                    if not vm['is_legacy']:
+                        config_icon = Gtk.Image.new_from_icon_name("preferences-system-symbolic")
+                        config_btn = Gtk.Button()
+                        config_btn.set_child(config_icon)
+                        config_btn.set_valign(Gtk.Align.CENTER)
+                        config_btn.add_css_class("flat")
+                        config_btn.set_tooltip_text("Reconfigure VM / Reconfigurar VM")
+                        config_btn.connect("clicked", self.on_reconfigure_clicked)
+                        action_row.add_suffix(config_btn)
+                    
                     # Botón para eliminar la VM
                     # Button to delete the VM
                     delete_icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
@@ -349,15 +358,7 @@ class MainWindow(Adw.ApplicationWindow):
                     self.vm_list_box.append(action_row)
                 
                 self.vm_list_group.set_visible(True)
-                
-                # Habilitar Reconfiguración si tenemos archivo compose local
-                # Enable Reconfiguration if we have a local compose file
-                installed = self.docker_adapter.is_vm_installed()
                 self.setup_new_button.set_visible(True)
-                if installed:
-                    self.reconfigure_button.set_visible(True)
-                else:
-                    self.reconfigure_button.set_visible(False)
             else:
                 self.status_page.set_title("System Ready")
                 self.status_page.set_description("All dependencies are met. You MUST read the instructions before starting.")
@@ -365,7 +366,6 @@ class MainWindow(Adw.ApplicationWindow):
                 
                 self.vm_list_group.set_visible(False)
                 self.setup_new_button.set_visible(True)
-                self.reconfigure_button.set_visible(False)
         else:
             self.status_page.set_title("Missing Dependencies")
             self.status_page.set_icon_name("dialog-error-symbolic")
@@ -391,6 +391,10 @@ class MainWindow(Adw.ApplicationWindow):
         self.wizard.ram_spin.set_value(8)
         self.wizard.cpu_spin.set_value(4)
         self.wizard.disk_spin.set_value(128)
+        self.wizard.disk_devices_row.set_text("")
+        self.wizard.usb_devices_row.set_text("")
+        self.wizard.dhcp_row.set_active(False)
+        self.wizard.dhcp_network_row.set_text("vlan")
         self.stack.set_visible_child_name("wizard")
 
     def on_reconfigure_clicked(self, button):
@@ -404,6 +408,10 @@ class MainWindow(Adw.ApplicationWindow):
             self.wizard.ram_spin.set_value(existing_config.ram_gb)
             self.wizard.cpu_spin.set_value(existing_config.cpu_cores)
             self.wizard.disk_spin.set_value(existing_config.storage_gb)
+            self.wizard.disk_devices_row.set_text(", ".join(existing_config.disk_devices))
+            self.wizard.usb_devices_row.set_text(", ".join(existing_config.usb_devices))
+            self.wizard.dhcp_row.set_active(existing_config.dhcp_enabled)
+            self.wizard.dhcp_network_row.set_text(existing_config.dhcp_network if existing_config.dhcp_network else "vlan")
         self.stack.set_visible_child_name("wizard")
 
     def on_delete_vm_clicked(self, button, vm):
@@ -478,9 +486,43 @@ class MainWindow(Adw.ApplicationWindow):
     def on_launch_clicked(self, button):
         version_list = ["sequoia", "sonoma", "ventura", "monterey", "big-sur", "catalina"]
         version = version_list[self.wizard.version_row.get_selected()]
-        config = MacOSConfig(version=version, ram_gb=int(self.wizard.ram_spin.get_value()), 
-                             cpu_cores=int(self.wizard.cpu_spin.get_value()), 
-                             storage_gb=int(self.wizard.disk_spin.get_value()))
+        
+        # Parse host disk devices
+        # Parsear dispositivos de disco del host
+        disk_text = self.wizard.disk_devices_row.get_text().strip()
+        disk_devices = [d.strip() for d in disk_text.split(",") if d.strip()]
+
+        # Parse USB devices
+        # Parsear dispositivos USB
+        usb_text = self.wizard.usb_devices_row.get_text().strip()
+        usb_devices = [u.strip() for u in usb_text.split(",") if u.strip()]
+
+        # Parse DHCP and VLAN settings
+        # Parsear configuraciones DHCP y VLAN
+        dhcp_enabled = self.wizard.dhcp_row.get_active()
+        dhcp_network = self.wizard.dhcp_network_row.get_text().strip() or None
+
+        config = MacOSConfig(
+            version=version, 
+            ram_gb=int(self.wizard.ram_spin.get_value()), 
+            cpu_cores=int(self.wizard.cpu_spin.get_value()), 
+            storage_gb=int(self.wizard.disk_spin.get_value()),
+            disk_devices=disk_devices,
+            usb_devices=usb_devices,
+            dhcp_enabled=dhcp_enabled,
+            dhcp_network=dhcp_network
+        )
+        
+        # Check if DHCP/macvlan network needs to be created
+        # Comprobar si es necesario crear la red DHCP/macvlan
+        if dhcp_enabled and dhcp_network:
+            if not self.system_adapter.docker_network_exists(dhcp_network):
+                self.show_network_creation_dialog(dhcp_network, config)
+                return
+                
+        self.proceed_launch(config)
+
+    def proceed_launch(self, config):
         if self.docker_adapter.generate_compose_file(config, "docker-compose.yml"):
             self.current_vm_name = "macboat-macos"
             self.current_vm_is_legacy = False
@@ -490,23 +532,131 @@ class MainWindow(Adw.ApplicationWindow):
         process = self.docker_adapter.run_compose("docker-compose.yml")
         if process:
             self.stack.set_visible_child_name("vm")
+            
+            # Determine URL and Host/Port to poll
+            # Determinar la URL y el Host/Port a sondear
+            if config.dhcp_enabled:
+                ip = self.docker_adapter.get_container_ip("macboat-macos")
+                host = ip if ip != "localhost" else "localhost"
+                port = 8006
+                web_url = f"http://{host}:{port}"
+                toast_msg = f"DHCP Mode Active / Modo DHCP Activo. Access / Acceso: {web_url}"
+                dhcp_info = f"<p style='text-align:center;color:#ffaa00;margin-top:16px;'>DHCP Mode Active. VM IP: <b>{host}</b><br>Note: Host-to-guest communication is disabled by default in macvlan.<br>You can access this VM from other devices on your local network.<br><br>Modo DHCP Activo. IP de la VM: <b>{host}</b><br>Nota: La comunicación host-invitado está deshabilitada en macvlan.<br>Puedes acceder a esta VM desde otros dispositivos de tu red local.</p>"
+            else:
+                host = "localhost"
+                port = config.web_port
+                web_url = f"http://{host}:{port}"
+                toast_msg = f"Starting macOS... Access via {web_url}"
+                dhcp_info = ""
+
+            # Load custom HTML screen (passing None as base URI to avoid directory listing)
+            # Cargar pantalla HTML personalizada (pasando None como base URI para evitar listado de directorio)
             if WEBKIT_AVAILABLE:
-                self.web_view.load_uri(f"http://localhost:{config.web_port}")
+                html_content = f"<html><body style='background-color:#1e1e1e;color:#ffffff;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'><div><h2 style='text-align:center;'>Starting macOS Web Viewer... / Iniciando Visor de macOS...</h2><p style='text-align:center;color:#aaaaaa;'>Waiting for container web service / Esperando al servicio web del contenedor...</p>{dhcp_info}</div></body></html>"
+                self.web_view.load_html(html_content, None)
+
+            # Check for disconnected passthrough devices to warn the user
+            # Comprobar si hay dispositivos de paso desconectados para advertir al usuario
+            disconnected_warnings = []
+            for disk in config.disk_devices:
+                if disk and not os.path.exists(disk):
+                    disconnected_warnings.append(disk.split("/")[-1])
+            
+            if config.usb_devices:
+                try:
+                    res_usb = subprocess.run(['lsusb'], capture_output=True, text=True)
+                    connected_usbs = re.findall(r'ID ([0-9a-fA-F]{4}:[0-9a-fA-F]{4})', res_usb.stdout)
+                    connected_set = {u.lower() for u in connected_usbs}
+                    for usb in config.usb_devices:
+                        if ":" in usb:
+                            vid, pid = usb.split(":")
+                            clean_vid = vid.strip().replace("0x", "").lower().zfill(4)
+                            clean_pid = pid.strip().replace("0x", "").lower().zfill(4)
+                            if f"{clean_vid}:{clean_pid}" not in connected_set:
+                                disconnected_warnings.append(usb)
+                except Exception:
+                    pass
+
+            if disconnected_warnings:
+                warn_msg = f"Warning: Disconnected devices omitted / Aviso: Disp. desconectados omitidos: {', '.join(disconnected_warnings)}"
+                warn_toast = Adw.Toast(title=warn_msg)
+                warn_toast.set_timeout(6)
+                self.overlay.add_toast(warn_toast)
+
             self.stream_logs(process)
-            toast = Adw.Toast(title=f"Starting macOS... Access via http://localhost:{config.web_port}")
+            
+            # Show initial toast
+            # Mostrar toast inicial
+            toast = Adw.Toast(title=toast_msg)
             toast.set_timeout(10)
             self.overlay.add_toast(toast)
+
+            # Poll port in background thread and load web view once ready
+            # Sondear el puerto en un hilo secundario y cargar el web view cuando esté listo
+            def poll_port():
+                import time
+                import socket
+                retries = 30  # Max 30 seconds
+                connected = False
+                while retries > 0:
+                    try:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.settimeout(1.0)
+                            if s.connect_ex((host, port)) == 0:
+                                connected = True
+                                break
+                    except Exception:
+                        pass
+                    time.sleep(1.0)
+                    retries -= 1
+                
+                if connected:
+                    GLib.idle_add(lambda: self.web_view.load_uri(web_url) if WEBKIT_AVAILABLE else None)
+                else:
+                    GLib.idle_add(lambda: self.overlay.add_toast(Adw.Toast(title="Web Viewer timeout / Tiempo de espera del visor agotado")))
+
+            threading.Thread(target=poll_port, daemon=True).start()
 
     def launch_legacy_vm(self, container_name, web_port):
         process = self.docker_adapter.start_legacy_vm(container_name)
         if process:
             self.stack.set_visible_child_name("vm")
+            
+            web_url = f"http://localhost:{web_port}"
             if WEBKIT_AVAILABLE:
-                self.web_view.load_uri(f"http://localhost:{web_port}")
+                html_content = "<html><body style='background-color:#1e1e1e;color:#ffffff;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'><div><h2 style='text-align:center;'>Starting macOS Web Viewer... / Iniciando Visor de macOS...</h2><p style='text-align:center;color:#aaaaaa;'>Waiting for container web service / Esperando al servicio web del contenedor...</p></div></body></html>"
+                self.web_view.load_html(html_content, None)
+                
             self.stream_logs(process)
-            toast = Adw.Toast(title=f"Starting VM {container_name}... Access via http://localhost:{web_port}")
+            toast = Adw.Toast(title=f"Starting VM {container_name}... Access via {web_url}")
             toast.set_timeout(10)
             self.overlay.add_toast(toast)
+
+            # Poll port in background thread and load web view once ready
+            # Sondear el puerto en un hilo secundario y cargar el web view cuando esté listo
+            def poll_port():
+                import time
+                import socket
+                retries = 30  # Max 30 seconds
+                connected = False
+                while retries > 0:
+                    try:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.settimeout(1.0)
+                            if s.connect_ex(('localhost', web_port)) == 0:
+                                connected = True
+                                break
+                    except Exception:
+                        pass
+                    time.sleep(1.0)
+                    retries -= 1
+                
+                if connected:
+                    GLib.idle_add(lambda: self.web_view.load_uri(web_url) if WEBKIT_AVAILABLE else None)
+                else:
+                    GLib.idle_add(lambda: self.overlay.add_toast(Adw.Toast(title="Web Viewer timeout / Tiempo de espera del visor agotado")))
+
+            threading.Thread(target=poll_port, daemon=True).start()
 
     def on_power_off_clicked(self, button):
         success = False
@@ -550,4 +700,164 @@ class MainWindow(Adw.ApplicationWindow):
         adj = self.logs_view.get_vadjustment()
         GLib.idle_add(lambda: adj.set_value(adj.get_upper() - adj.get_page_size()))
         return False
+
+    def show_checkbox_selector_dialog(self, title, items, current_values, callback):
+        # Open dialog for item selection
+        # Abrir diálogo para la selección de elementos
+        dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dialog.set_default_size(450, 350)
+        
+        # Add buttons
+        # Añadir botones
+        dialog.add_button("Cancel / Cancelar", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Apply / Aplicar", Gtk.ResponseType.OK)
+        
+        # Content layout
+        # Disposición del contenido
+        content_area = dialog.get_content_area()
+        content_area.set_margin_top(16)
+        content_area.set_margin_bottom(16)
+        content_area.set_margin_start(16)
+        content_area.set_margin_end(16)
+        content_area.set_spacing(12)
+        
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_vexpand(True)
+        scrolled.set_hexpand(True)
+        content_area.append(scrolled)
+        
+        list_box = Gtk.ListBox()
+        list_box.add_css_class("boxed-list")
+        scrolled.set_child(list_box)
+        
+        checkboxes = {}
+        for item in items:
+            row = Adw.ActionRow(title=item['label'])
+            switch = Gtk.Switch()
+            switch.set_valign(Gtk.Align.CENTER)
+            switch.set_active(item['id'] in current_values)
+            row.add_suffix(switch)
+            list_box.append(row)
+            checkboxes[item['id']] = switch
+            
+        def on_response(dialog, response_id):
+            if response_id == Gtk.ResponseType.OK:
+                selected_ids = [item_id for item_id, switch in checkboxes.items() if switch.get_active()]
+                callback(selected_ids)
+            dialog.destroy()
+            
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def on_select_disks_clicked(self, button):
+        # Retrieve block devices from host system
+        # Obtener los dispositivos de bloque del sistema host
+        raw_devices = self.system_adapter.get_block_devices()
+        
+        # Prepare list for the selector
+        # Preparar la lista para el selector
+        items = []
+        connected_paths = {dev['path'] for dev in raw_devices}
+        
+        for dev in raw_devices:
+            model_info = f" ({dev['model']})" if dev['model'] else ""
+            label = f"{dev['path']} - {dev['size']} [{dev['type']}{model_info}]"
+            items.append({
+                'id': dev['path'],
+                'label': label
+            })
+            
+        # Parse currently selected disks
+        # Parsear los discos seleccionados actualmente
+        current_text = self.wizard.disk_devices_row.get_text().strip()
+        current_values = [d.strip() for d in current_text.split(",") if d.strip()]
+        
+        # Include currently configured but disconnected disk devices so they can be explicitly deselected
+        # Incluir dispositivos de disco configurados actualmente pero desconectados para poder deseleccionarlos explícitamente
+        for val in current_values:
+            if val not in connected_paths:
+                items.append({
+                    'id': val,
+                    'label': f"{val} [Disconnected / Desconectado ⚠️]"
+                })
+        
+        def callback(selected):
+            self.wizard.disk_devices_row.set_text(", ".join(selected))
+            
+        self.show_checkbox_selector_dialog("Select Disks / Seleccionar Discos", items, current_values, callback)
+
+    def on_select_usb_clicked(self, button):
+        # Retrieve USB devices from host system
+        # Obtener los dispositivos USB del sistema host
+        raw_usb = self.system_adapter.get_usb_devices()
+        
+        # Prepare list for the selector
+        # Preparar la lista para el selector
+        items = []
+        connected_ids = {usb['id'] for usb in raw_usb}
+        
+        for usb in raw_usb:
+            label = f"{usb['id']} - {usb['name']}"
+            items.append({
+                'id': usb['id'],
+                'label': label
+            })
+            
+        # Parse currently selected USBs
+        # Parsear los dispositivos USB seleccionados actualmente
+        current_text = self.wizard.usb_devices_row.get_text().strip()
+        current_values = [u.strip() for u in current_text.split(",") if u.strip()]
+        
+        # Include currently configured but disconnected USB devices so they can be explicitly deselected
+        # Incluir dispositivos USB configurados actualmente pero desconectados para poder deseleccionarlos explícitamente
+        for val in current_values:
+            if val not in connected_ids:
+                items.append({
+                    'id': val,
+                    'label': f"{val} [Disconnected / Desconectado ⚠️]"
+                })
+        
+        def callback(selected):
+            self.wizard.usb_devices_row.set_text(", ".join(selected))
+            
+        self.show_checkbox_selector_dialog("Select USB / Seleccionar USB", items, current_values, callback)
+
+    def show_network_creation_dialog(self, network_name, config):
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Network Not Found / Red No Encontrada",
+            body=f"The Docker network '{network_name}' is required for DHCP mode but does not exist.\n\n"
+                 f"Macboat can try to automatically detect your host network interface and create this macvlan network for you, "
+                 f"or you can create it manually in your terminal.\n\n"
+                 f"La red de Docker '{network_name}' es necesaria para el modo DHCP pero no existe.\n\n"
+                 f"Macboat puede intentar detectar automáticamente tu interfaz de red activa y crear esta red macvlan por ti, "
+                 f"o puedes crearla manualmente en tu terminal."
+        )
+        dialog.add_response("cancel", "Cancel / Cancelar")
+        dialog.add_response("create", "Create Automatically / Crear Automáticamente")
+        dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("create")
+        dialog.set_close_response("cancel")
+        
+        def on_response(dialog, response):
+            if response == "create":
+                self.overlay.add_toast(Adw.Toast(title=f"Creating network {network_name}... / Creando red {network_name}..."))
+                
+                # Perform network creation in a background thread to keep UI responsive
+                # Realizar la creación de la red en un hilo secundario para mantener la UI responsiva
+                def create_task():
+                    success = self.system_adapter.create_macvlan_network(network_name)
+                    GLib.idle_add(self.on_network_creation_complete, success, network_name, config)
+                threading.Thread(target=create_task, daemon=True).start()
+            dialog.destroy()
+            
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def on_network_creation_complete(self, success, network_name, config):
+        if success:
+            self.overlay.add_toast(Adw.Toast(title=f"Network {network_name} created successfully! / ¡Red {network_name} creada con éxito!"))
+            self.proceed_launch(config)
+        else:
+            self.overlay.add_toast(Adw.Toast(title=f"Failed to create network {network_name} / Error al crear la red {network_name}"))
 

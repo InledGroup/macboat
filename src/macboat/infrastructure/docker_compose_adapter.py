@@ -8,6 +8,7 @@ import os
 import yaml
 import subprocess
 import socket
+import re
 from typing import Optional
 from macboat.ports.docker_repository import DockerRepository
 from macboat.domain.macos_config import MacOSConfig
@@ -124,6 +125,69 @@ class DockerComposeAdapter(DockerRepository):
                 }
             }
         }
+
+        # 1. Disk Passthrough / Paso de Discos
+        # Use /disk1, /disk2, etc. as specified in the README. Filter out disconnected ones.
+        # Usar /disk1, /disk2, etc. como se especifica en el README. Filtrar los desconectados.
+        valid_disks = []
+        for disk in config.disk_devices:
+            if disk and os.path.exists(disk):
+                valid_disks.append(disk)
+            else:
+                print(f"Warning: Disk device {disk} is not connected. Omitted.")
+                
+        for i, disk in enumerate(valid_disks, 1):
+            compose_data['services']['macos']['devices'].append(f"{disk}:/disk{i}")
+
+        # 2. USB Passthrough / Paso de USB
+        # Format vendorid=0xXXXX,productid=0xXXXX and mount /dev/bus/usb. Filter out disconnected ones.
+        # Formato vendorid=0xXXXX,productid=0xXXXX y montar /dev/bus/usb. Filtrar los desconectados.
+        connected_usbs = []
+        try:
+            res_usb = subprocess.run(['lsusb'], capture_output=True, text=True)
+            connected_usbs = re.findall(r'ID ([0-9a-fA-F]{4}:[0-9a-fA-F]{4})', res_usb.stdout)
+        except Exception as e:
+            print(f"Error checking connected USBs: {e}")
+            
+        usb_args = []
+        for usb in config.usb_devices:
+            if ":" in usb:
+                vid, pid = usb.split(":")
+                clean_vid = vid.strip().replace("0x", "").lower().zfill(4)
+                clean_pid = pid.strip().replace("0x", "").lower().zfill(4)
+                usb_pair = f"{clean_vid}:{clean_pid}"
+                
+                is_connected = True
+                if connected_usbs:
+                    is_connected = usb_pair in [u.lower() for u in connected_usbs]
+                    
+                if is_connected:
+                    usb_args.append(f"-device usb-host,vendorid={vid.strip()},productid={pid.strip()}")
+                else:
+                    print(f"Warning: USB device {usb} is not connected. Omitted.")
+                    
+        if usb_args:
+            compose_data['services']['macos']['devices'].append('/dev/bus/usb')
+            compose_data['services']['macos']['environment']['ARGUMENTS'] = " ".join(usb_args)
+
+        # 3. DHCP Mode (IP Acquisition) / Modo DHCP (Adquisición de IP)
+        # Enable DHCP: "Y", add /dev/vhost-net device, configure cgroup rules and vlan network if set
+        # Habilitar DHCP: "Y", añadir /dev/vhost-net, cgroup rules y red vlan si se indica
+        if config.dhcp_enabled:
+            compose_data['services']['macos']['environment']['DHCP'] = 'Y'
+            compose_data['services']['macos']['devices'].append('/dev/vhost-net')
+            compose_data['services']['macos']['device_cgroup_rules'] = ['c *:* rwm']
+            
+            # If a custom network name is provided, use it
+            # Si se proporciona un nombre de red personalizado, usarlo
+            if config.dhcp_network:
+                net_name = config.dhcp_network.strip()
+                compose_data['services']['macos']['networks'] = {net_name: {}}
+                compose_data['networks'] = {
+                    net_name: {
+                        'external': True
+                    }
+                }
         
         try:
             with open(target_path, 'w') as f:
@@ -168,26 +232,58 @@ class DockerComposeAdapter(DockerRepository):
                 cores = int(env.get('CPU_CORES', '1'))
                 disk = int(env.get('DISK_SIZE', '64G').replace('G', ''))
                 
+                # Extraer dispositivos de disco passthrough
+                # Extract disk passthrough devices
+                disk_devices = []
+                devices = data['services']['macos'].get('devices', [])
+                for dev in devices:
+                    if ':/disk' in dev:
+                        disk_devices.append(dev.split(':')[0])
+                
+                # Extraer dispositivos USB
+                # Extract USB devices
+                usb_devices = []
+                arguments = env.get('ARGUMENTS', '')
+                usb_matches = re.findall(r'usb-host,vendorid=([^,\s]+),productid=([^,\s]+)', arguments)
+                for vid, pid in usb_matches:
+                    usb_devices.append(f"{vid}:{pid}")
+                
+                # Extraer configuración DHCP y red vlan
+                # Extract DHCP configuration and vlan network
+                dhcp_enabled = env.get('DHCP') == 'Y'
+                dhcp_network = None
+                if dhcp_enabled:
+                    networks = data['services']['macos'].get('networks', {})
+                    if networks:
+                        if isinstance(networks, dict):
+                            dhcp_network = list(networks.keys())[0]
+                        elif isinstance(networks, list):
+                            dhcp_network = networks[0]
+
                 return MacOSConfig(
                     version=version, 
                     ram_gb=ram, 
                     cpu_cores=cores, 
                     storage_gb=disk,
                     web_port=web_port,
-                    vnc_port=vnc_port
+                    vnc_port=vnc_port,
+                    disk_devices=disk_devices,
+                    usb_devices=usb_devices,
+                    dhcp_enabled=dhcp_enabled,
+                    dhcp_network=dhcp_network
                 )
         except:
             return None
 
     def stop_vm(self) -> bool:
-        """Stops the VM using docker compose down.
-        Detiene la VM usando docker compose down."""
+        """Stops the VM using docker compose stop.
+        Detiene la VM usando docker compose stop."""
         try:
-            subprocess.run(['docker', 'compose', 'down'], cwd=self.config_dir, check=True)
+            subprocess.run(['docker', 'compose', 'stop'], cwd=self.config_dir, check=True)
             return True
         except:
             try:
-                subprocess.run(['docker-compose', 'down'], cwd=self.config_dir, check=True)
+                subprocess.run(['docker-compose', 'stop'], cwd=self.config_dir, check=True)
                 return True
             except:
                 return False
@@ -270,6 +366,20 @@ class DockerComposeAdapter(DockerRepository):
                             'state': state,
                             'is_legacy': name != 'macboat-macos'
                         })
+            
+            # If the compose file exists but no container is created, append it as exited
+            # Si el archivo compose existe pero no se ha creado el contenedor, añadirlo como exited
+            if self.is_vm_installed():
+                has_compose_vm = any(v['name'] == 'macboat-macos' for v in vms)
+                if not has_compose_vm:
+                    vms.append({
+                        'name': 'macboat-macos',
+                        'image': 'dockurr/macos',
+                        'status': 'Stopped / Detenida',
+                        'state': 'exited',
+                        'is_legacy': False
+                    })
+                    
             return vms
         except Exception as e:
             print(f"Error listing VMs: {e}")
@@ -347,5 +457,19 @@ class DockerComposeAdapter(DockerRepository):
         except Exception as e:
             print(f"Error deleting VM {container_name}: {e}")
             return False
+
+    def get_container_ip(self, container_name: str) -> str:
+        """Inspects the container to find its IP address.
+        Inspecciona el contenedor para encontrar su dirección IP."""
+        try:
+            result = subprocess.run(
+                ['docker', 'inspect', '--format', '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}', container_name],
+                capture_output=True, text=True, check=True
+            )
+            ip = result.stdout.strip()
+            return ip if ip else "localhost"
+        except Exception as e:
+            print(f"Error reading container IP: {e}")
+            return "localhost"
 
 

@@ -53,6 +53,33 @@ class ConfigWizard(Adw.Bin):
         self.disk_spin.set_valign(Gtk.Align.CENTER)
         self.disk_row.add_suffix(self.disk_spin)
         group.add(self.disk_row)
+
+        # Disk Passthrough Row / Fila de Paso de Discos
+        self.disk_devices_row = Adw.EntryRow(title="Disk Passthrough / Paso de Discos (e.g. /dev/sdb, /dev/sdc1)")
+        self.disk_select_btn = Gtk.Button.new_from_icon_name("view-list-symbolic")
+        self.disk_select_btn.set_tooltip_text("Select Disks / Seleccionar Discos")
+        self.disk_select_btn.set_valign(Gtk.Align.CENTER)
+        self.disk_devices_row.add_suffix(self.disk_select_btn)
+        group.add(self.disk_devices_row)
+
+        # USB Passthrough Row / Fila de Paso de USB
+        self.usb_devices_row = Adw.EntryRow(title="USB Passthrough / Paso de USB (e.g. 0x1234:0x5678, 0xabcd:0x0012)")
+        self.usb_select_btn = Gtk.Button.new_from_icon_name("view-list-symbolic")
+        self.usb_select_btn.set_tooltip_text("Select USB Devices / Seleccionar Dispositivos USB")
+        self.usb_select_btn.set_valign(Gtk.Align.CENTER)
+        self.usb_devices_row.add_suffix(self.usb_select_btn)
+        group.add(self.usb_devices_row)
+
+        # DHCP Switch Row / Fila de Switch para DHCP
+        self.dhcp_row = Adw.SwitchRow(title="DHCP Mode (IP Acquisition) / Modo DHCP (Adquisición IP)")
+        self.dhcp_row.set_active(False)
+        group.add(self.dhcp_row)
+
+        # DHCP Network Row / Fila de Nombre de Red VLAN para DHCP
+        self.dhcp_network_row = Adw.EntryRow(title="VLAN Network Name / Nombre de Red VLAN")
+        self.dhcp_network_row.set_text("vlan")
+        self.dhcp_row.bind_property("active", self.dhcp_network_row, "visible", 0)
+        group.add(self.dhcp_network_row)
         
         # Launch button
         self.launch_button = Gtk.Button(label="Launch VM")
