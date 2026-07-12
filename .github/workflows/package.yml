@@ -87,7 +87,7 @@ jobs:
           mkdir -p ~/rpmbuild/{SOURCES,SPECS}
           tar --transform "s,^,macboat-${VERSION_CLEAN}/," --exclude=.git -czf ~/rpmbuild/SOURCES/macboat-${VERSION_CLEAN}.tar.gz .
           cp rpm/macboat.spec ~/rpmbuild/SPECS/
-          sed -i "s/Version:        0.1.0/Version:        ${VERSION_CLEAN}/" ~/rpmbuild/SPECS/macboat.spec
+          sed -i "s/^Version:.*/Version:        ${VERSION_CLEAN}/" ~/rpmbuild/SPECS/macboat.spec
           rpmbuild -ba --nodeps ~/rpmbuild/SPECS/macboat.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
       - name: Upload Artifact
@@ -120,7 +120,7 @@ jobs:
           tar -czf "/tmp/macboat-${VERSION_CLEAN}.tar.gz" --exclude=arch --exclude=.git --transform "s,^,macboat-${VERSION_CLEAN}/," .
           mv "/tmp/macboat-${VERSION_CLEAN}.tar.gz" arch/
           cd arch
-          sed -i "s/pkgver=0.1.0/pkgver=${VERSION_CLEAN}/" PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=${VERSION_CLEAN}/" PKGBUILD
           sed -i '/sha256sums=/c\sha256sums=("SKIP")' PKGBUILD
           chown builduser:builduser macboat-${VERSION_CLEAN}.tar.gz PKGBUILD
           su builduser -c "makepkg --noconfirm -s --nocheck"
