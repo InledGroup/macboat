@@ -8,6 +8,10 @@ Application entry point.
 import sys
 import os
 
+# Fix WebKitGTK rendering/loading issues on modern Linux systems (especially Arch Linux with NVIDIA/Wayland)
+# Corregir problemas de renderizado/carga de WebKitGTK en sistemas Linux modernos (especialmente Arch Linux con NVIDIA/Wayland)
+os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
+
 # Add the package directory to sys.path if installed
 pkg_dir = os.path.join(os.path.dirname(__file__), '..', 'share', 'macboat')
 if os.path.exists(pkg_dir):

@@ -308,28 +308,38 @@ class MainWindow(Adw.ApplicationWindow):
                 for vm in vms:
                     action_row = Adw.ActionRow(title=vm['name'])
                     action_row.set_subtitle(f"Image: {vm['image']} | {vm['status']}")
+                    action_row.set_activatable(True)
+                    action_row.connect("activated", self.on_row_activated, vm)
                     
-                    # Icono del botón según si está corriendo o no
-                    # Button icon based on whether it is running
                     is_running = vm['state'] == "running"
-                    icon_name = "media-playback-stop-symbolic" if is_running else "media-playback-start-symbolic"
-                    icon = Gtk.Image.new_from_icon_name(icon_name)
-                    
-                    btn = Gtk.Button()
-                    btn.set_child(icon)
-                    btn.set_valign(Gtk.Align.CENTER)
-                    btn.add_css_class("flat")
                     
                     if is_running:
-                        btn.add_css_class("destructive-action")
-                        btn.set_tooltip_text("Stop VM / Detener VM")
-                        btn.connect("clicked", self.on_stop_vm_clicked, vm)
-                    else:
-                        btn.add_css_class("suggested-action")
-                        btn.set_tooltip_text("Start VM / Arrancar VM")
-                        btn.connect("clicked", self.on_start_vm_clicked, vm)
+                        # 1. Botón para ver la pantalla de la VM (Show Display)
+                        show_btn = Gtk.Button(label="Open / Abrir")
+                        show_btn.set_valign(Gtk.Align.CENTER)
+                        show_btn.add_css_class("suggested-action")
+                        show_btn.set_tooltip_text("Show Display / Mostrar Pantalla")
+                        show_btn.connect("clicked", self.on_show_display_clicked, vm)
+                        action_row.add_suffix(show_btn)
                         
-                    action_row.add_suffix(btn)
+                        # 2. Botón para detener la VM (Stop VM)
+                        stop_icon = Gtk.Image.new_from_icon_name("media-playback-stop-symbolic")
+                        stop_btn = Gtk.Button()
+                        stop_btn.set_child(stop_icon)
+                        stop_btn.set_valign(Gtk.Align.CENTER)
+                        stop_btn.add_css_class("flat")
+                        stop_btn.add_css_class("destructive-action")
+                        stop_btn.set_tooltip_text("Stop VM / Detener VM")
+                        stop_btn.connect("clicked", self.on_stop_vm_clicked, vm)
+                        action_row.add_suffix(stop_btn)
+                    else:
+                        # 1. Botón para arrancar la VM (Start VM)
+                        start_btn = Gtk.Button(label="Start / Arrancar")
+                        start_btn.set_valign(Gtk.Align.CENTER)
+                        start_btn.add_css_class("suggested-action")
+                        start_btn.set_tooltip_text("Start VM / Arrancar VM")
+                        start_btn.connect("clicked", self.on_start_vm_clicked, vm)
+                        action_row.add_suffix(start_btn)
                     
                     # Botón para reconfigurar la VM (solo si no es legacy)
                     # Button to reconfigure the VM (only if not legacy)
@@ -436,22 +446,29 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.present()
 
     def perform_delete_vm(self, vm):
-        # Detener primero si está corriendo
-        # Stop first if running
-        if vm['state'] == "running":
-            if vm['is_legacy']:
-                self.docker_adapter.stop_legacy_vm(vm['name'])
-            else:
-                self.docker_adapter.stop_vm()
-                
-        # Eliminar VM
-        # Delete VM
-        success = self.docker_adapter.delete_vm(vm['name'], vm['is_legacy'])
-        if success:
-            self.overlay.add_toast(Adw.Toast(title=f"VM {vm['name']} Deleted / Eliminada"))
-            self.check_dependencies() # Refresh list
-        else:
-            self.overlay.add_toast(Adw.Toast(title=f"Error deleting VM / Error al eliminar VM"))
+        # Detener y eliminar la VM en un hilo secundario
+        # Stop and delete the VM in a background thread
+        self.overlay.add_toast(Adw.Toast(title=f"Deleting VM {vm['name']}... / Eliminando VM {vm['name']}..."))
+        
+        def delete_task():
+            if vm['state'] == "running":
+                if vm['is_legacy']:
+                    self.docker_adapter.stop_legacy_vm(vm['name'])
+                else:
+                    self.docker_adapter.stop_vm()
+                    
+            success = self.docker_adapter.delete_vm(vm['name'], vm['is_legacy'])
+            
+            def on_done():
+                if success:
+                    self.overlay.add_toast(Adw.Toast(title=f"VM {vm['name']} Deleted / Eliminada"))
+                    self.check_dependencies() # Refresh list
+                else:
+                    self.overlay.add_toast(Adw.Toast(title=f"Error deleting VM / Error al eliminar VM"))
+            
+            GLib.idle_add(on_done)
+            
+        threading.Thread(target=delete_task, daemon=True).start()
 
     def on_start_vm_clicked(self, button, vm):
         self.current_vm_name = vm['name']
@@ -471,17 +488,64 @@ class MainWindow(Adw.ApplicationWindow):
         self.launch_legacy_vm(vm['name'], web_port)
 
     def on_stop_vm_clicked(self, button, vm):
-        # Parar la VM desde la fila de la lista
-        # Stop the VM from the list row
-        success = False
-        if vm['is_legacy']:
-            success = self.docker_adapter.stop_legacy_vm(vm['name'])
-        else:
-            success = self.docker_adapter.stop_vm()
+        # Parar la VM desde la fila de la lista en un hilo secundario
+        # Stop the VM from the list row in a background thread
+        if button:
+            button.set_sensitive(False)
+        self.overlay.add_toast(Adw.Toast(title=f"Stopping VM {vm['name']}... / Deteniendo VM {vm['name']}..."))
+        
+        def stop_task():
+            success = False
+            if vm['is_legacy']:
+                success = self.docker_adapter.stop_legacy_vm(vm['name'])
+            else:
+                success = self.docker_adapter.stop_vm()
+                
+            def on_done():
+                if button:
+                    button.set_sensitive(True)
+                if success:
+                    self.overlay.add_toast(Adw.Toast(title=f"VM {vm['name']} Stopped / Detenida"))
+                    self.check_dependencies() # Refrescar lista
+                else:
+                    self.overlay.add_toast(Adw.Toast(title=f"Error stopping VM {vm['name']} / Error al detener VM {vm['name']}"))
             
-        if success:
-            self.overlay.add_toast(Adw.Toast(title=f"VM {vm['name']} Stopped / Detenida"))
-            self.check_dependencies() # Refrescar lista
+            GLib.idle_add(on_done)
+            
+        threading.Thread(target=stop_task, daemon=True).start()
+
+    def on_show_display_clicked(self, button, vm):
+        self.current_vm_name = vm['name']
+        self.current_vm_is_legacy = vm['is_legacy']
+        self.stack.set_visible_child_name("vm")
+        
+        # Determine URL
+        if vm['is_legacy']:
+            web_port = self.docker_adapter.get_container_web_port(vm['name'])
+            web_url = f"http://localhost:{web_port}"
+        else:
+            config = self.docker_adapter.get_existing_config()
+            if config:
+                if config.dhcp_enabled:
+                    ip = self.docker_adapter.get_container_ip("macboat-macos")
+                    host = ip if ip != "localhost" else "localhost"
+                    port = 8006
+                else:
+                    host = "localhost"
+                    port = config.web_port
+                web_url = f"http://{host}:{port}"
+            else:
+                web_url = "http://localhost:8006"
+        
+        if WEBKIT_AVAILABLE:
+            self.web_view.load_uri(web_url)
+            
+    def on_row_activated(self, row, vm):
+        is_running = vm['state'] == "running"
+        if is_running:
+            self.on_show_display_clicked(None, vm)
+        else:
+            self.on_start_vm_clicked(None, vm)
 
     def on_launch_clicked(self, button):
         version_list = ["sequoia", "sonoma", "ventura", "monterey", "big-sur", "catalina"]
@@ -659,26 +723,56 @@ class MainWindow(Adw.ApplicationWindow):
             threading.Thread(target=poll_port, daemon=True).start()
 
     def on_power_off_clicked(self, button):
-        success = False
-        if hasattr(self, 'current_vm_is_legacy') and self.current_vm_is_legacy:
-            success = self.docker_adapter.stop_legacy_vm(self.current_vm_name)
-        else:
-            success = self.docker_adapter.stop_vm()
+        if button:
+            button.set_sensitive(False)
+        self.overlay.add_toast(Adw.Toast(title="Stopping VM... / Deteniendo VM..."))
+        
+        def stop_task():
+            success = False
+            if hasattr(self, 'current_vm_is_legacy') and self.current_vm_is_legacy:
+                success = self.docker_adapter.stop_legacy_vm(self.current_vm_name)
+            else:
+                success = self.docker_adapter.stop_vm()
+                
+            def on_done():
+                if button:
+                    button.set_sensitive(True)
+                if success:
+                    self.stack.set_visible_child_name("status")
+                    self.overlay.add_toast(Adw.Toast(title="VM Stopped / Detenida"))
+                    self.check_dependencies()
+                else:
+                    self.overlay.add_toast(Adw.Toast(title="Error stopping VM / Error al detener VM"))
             
-        if success:
-            self.stack.set_visible_child_name("status")
-            self.overlay.add_toast(Adw.Toast(title="VM Stopped / Detenida"))
-            self.check_dependencies()
+            GLib.idle_add(on_done)
+            
+        threading.Thread(target=stop_task, daemon=True).start()
 
     def on_restart_clicked(self, button):
-        success = False
-        if hasattr(self, 'current_vm_is_legacy') and self.current_vm_is_legacy:
-            success = self.docker_adapter.restart_legacy_vm(self.current_vm_name)
-        else:
-            success = self.docker_adapter.restart_vm()
+        if button:
+            button.set_sensitive(False)
+        self.overlay.add_toast(Adw.Toast(title="Restarting VM... / Reiniciando VM..."))
+        
+        def restart_task():
+            success = False
+            if hasattr(self, 'current_vm_is_legacy') and self.current_vm_is_legacy:
+                success = self.docker_adapter.restart_legacy_vm(self.current_vm_name)
+            else:
+                success = self.docker_adapter.restart_vm()
+                
+            def on_done():
+                if button:
+                    button.set_sensitive(True)
+                if success:
+                    self.overlay.add_toast(Adw.Toast(title="VM Restarted / VM Reiniciada"))
+                    if WEBKIT_AVAILABLE:
+                        self.web_view.reload()
+                else:
+                    self.overlay.add_toast(Adw.Toast(title="Error restarting VM / Error al reiniciar VM"))
             
-        if success:
-            self.overlay.add_toast(Adw.Toast(title="VM Restarting... / Reiniciando VM..."))
+            GLib.idle_add(on_done)
+            
+        threading.Thread(target=restart_task, daemon=True).start()
 
     def on_reload_clicked(self, button):
         if WEBKIT_AVAILABLE:
